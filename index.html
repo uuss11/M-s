@@ -1,348 +1,230 @@
 <!doctype html>
-<html lang="ar">
+<html lang="ar" dir="rtl">
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>تحكم باليد — نسخة مُصحّحة ومباشرة</title>
+<title>تحكم باليد - نسخة مطورة</title>
 <style>
-  body{margin:0;overflow:hidden;background:#000;color:#fff;font-family:Segoe UI,Arial}
-  canvas{display:block}
-  #overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;z-index:1000;flex-direction:column;gap:10px}
-  button{padding:10px 22px;border-radius:999px;border:none;background:#ff4757;color:#fff;cursor:pointer;font-size:1rem}
-  #status{position:fixed;bottom:12px;left:0;right:0;text-align:center;z-index:40}
-  #legend{position:fixed;top:12px;left:12px;padding:10px;background:rgba(0,0,0,.55);backdrop-filter:blur(6px);border-radius:10px;z-index:40;max-width:300px;font-size:.9rem}
-  #camBox{position:fixed;bottom:12px;right:12px;width:240px;height:170px;border-radius:12px;overflow:hidden;z-index:50;border:2px solid rgba(255,255,255,.12);background:#000}
-  #camBox video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+  body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; }
+  /* جعل الكاميرا في الخلفية بملء الشاشة */
+  #camPreview {
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    object-fit: cover; transform: scaleX(-1); z-index: 1;
+  }
+  /* الكانفاس فوق الكاميرا */
+  canvas { position: fixed; top: 0; left: 0; z-index: 10; pointer-events: none; }
+  
+  #overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000; flex-direction: column; color: white;
+  }
+  button {
+    padding: 15px 30px; border-radius: 30px; border: none;
+    background: #00d1b2; color: white; cursor: pointer; font-size: 1.2rem;
+  }
+  #status {
+    position: fixed; top: 20px; width: 100%; text-align: center;
+    color: #00ff88; font-weight: bold; z-index: 100; text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+  }
+  #legend {
+    position: fixed; bottom: 20px; right: 20px; padding: 15px;
+    background: rgba(0,0,0,0.6); color: white; border-radius: 15px;
+    z-index: 100; font-size: 0.8rem; pointer-events: none;
+  }
 </style>
 </head>
 <body>
 
 <div id="overlay">
-  <h2 style="margin:0">تجربة التحكم باليد — نسخة مُصحّحة</h2>
-  <div style="color:#ddd">اضغط ابدأ واسمح للكاميرا (Chrome / localhost أو HTTPS)</div>
-  <button id="startButton">ابدأ</button>
+  <h2>تجربة التحكم باليد (AR)</h2>
+  <p>تأكد من إضاءة جيدة للسماح للكاميرا بالتعرف على اليد</p>
+  <button id="startButton">ابدأ التجربة</button>
 </div>
 
-<div id="status">جاهز</div>
+<div id="status">انتظار التشغيل...</div>
 
 <div id="legend">
-  <b>🎮 الحركات</b><br>
-  🖐 سبابة → تحريك الجزيئات<br>
-  🤏 قرصة → تكبير/تصغير<br>
-  ✌️ إصبعين → تغيير الألوان<br>
-  👍 إبهام لفوك → دفعة سرعة الدوران<br>
-  🤘 روك → تفجير الجزيئات<br>
-  🖐 يد مفتوحة → تجميد المشهد<br>
-  👋 تلويح → إعادة ضبط المشهد<br>
-  👄 فتح الفم → شرار يتناثر بعيد
+  <b>🎮 دليل الحركات:</b><br>
+  ☝️ سبابة واحدة: تحريك الجزيئات<br>
+  ✊ قبضة يد: شكل قلب ❤️<br>
+  ✌️ علامة V: تغيير الألوان<br>
+  👍 إبهام للأعلى: تسريع الدوران<br>
+  🖐 كف مفتوح: تجميد الحركة
 </div>
 
-<div id="camBox"><video id="camPreview" autoplay muted playsinline></video></div>
+<video id="camPreview" autoplay muted playsinline></video>
 
-<!-- MediaPipe libs -->
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
 
 <script type="module">
 import * as THREE from 'https://cdn.skypack.dev/three@0.132.2';
 
-// UI
 const startButton = document.getElementById('startButton');
 const overlay = document.getElementById('overlay');
 const statusText = document.getElementById('status');
-const camPreview = document.getElementById('camPreview');
+const videoEl = document.getElementById('camPreview');
 
-// Three setup
+// إعداد Three.js بخلفية شفافة
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000);
-const renderer = new THREE.WebGLRenderer({antialias:true,alpha:true});
-renderer.setPixelRatio(window.devicePixelRatio || 1);
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setClearColor(0x000000, 0); // شفافية كاملة
 document.body.appendChild(renderer.domElement);
-camera.position.z = 85;
 
-// Particles (reduced count for reliability)
-const COUNT = 1300;
+camera.position.z = 50;
+
+// إنشاء الجزيئات
+const COUNT = 1500;
 const geo = new THREE.BufferGeometry();
-const positions = new Float32Array(COUNT*3);
-const colors = new Float32Array(COUNT*3);
-const vel = new Float32Array(COUNT*3);
-for(let i=0;i<COUNT;i++){
-  positions[i*3] = (Math.random()-.5)*120;
-  positions[i*3+1] = (Math.random()-.5)*120;
-  positions[i*3+2] = (Math.random()-.5)*120;
-  colors[i*3]=0.6; colors[i*3+1]=0.6; colors[i*3+2]=1;
-  vel[i*3]=vel[i*3+1]=vel[i*3+2]=0;
+const positions = new Float32Array(COUNT * 3);
+const colors = new Float32Array(COUNT * 3);
+for(let i=0; i<COUNT; i++) {
+    positions[i*3] = (Math.random()-0.5)*100;
+    positions[i*3+1] = (Math.random()-0.5)*100;
+    positions[i*3+2] = (Math.random()-0.5)*100;
 }
-geo.setAttribute('position', new THREE.BufferAttribute(positions,3));
-geo.setAttribute('color', new THREE.BufferAttribute(colors,3));
-const sprite = new THREE.TextureLoader().load('https://threejs.org/examples/textures/sprites/disc.png');
-const mat = new THREE.PointsMaterial({ size: 0.9, vertexColors:true, transparent:true, blending:THREE.AdditiveBlending, map:sprite, depthWrite:false });
+geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+const mat = new THREE.PointsMaterial({ size: 0.7, vertexColors: true, transparent: true, opacity: 0.8 });
 const particles = new THREE.Points(geo, mat);
 scene.add(particles);
 
-// Hand visuals group
-const handGroup = new THREE.Group();
-scene.add(handGroup);
+// خيوط اليد (الهيكل العظمي)
+const handLinesGeo = new THREE.BufferGeometry();
+const handLinesMat = new THREE.LineBasicMaterial({ color: 0x00ffff, linewidth: 2 });
+const handLines = new THREE.LineSegments(handLinesGeo, handLinesMat);
+scene.add(handLines);
 
-// THREADS: wrist->fingertips lines (5 segments)
-const threadPositions = new Float32Array(5 * 2 * 3); // 30 values
-const threadGeom = new THREE.BufferGeometry();
-threadGeom.setAttribute('position', new THREE.BufferAttribute(threadPositions,3));
-const threadMat = new THREE.LineBasicMaterial({ color: 0x66ffff, transparent:true, opacity:0.95 });
-const threadLines = new THREE.LineSegments(threadGeom, threadMat);
-handGroup.add(threadLines);
-
-// HAND SKELETON
-const HAND_CONN = [
-  [0,1],[1,2],[2,3],[3,4],
-  [0,5],[5,6],[6,7],[7,8],
-  [5,9],[9,10],[10,11],[11,12],
-  [9,13],[13,14],[14,15],[15,16],
-  [13,17],[17,18],[18,19],[19,20],[0,17]
-];
-const handLinePositions = new Float32Array(HAND_CONN.length * 2 * 3);
-const handLineGeom = new THREE.BufferGeometry();
-handLineGeom.setAttribute('position', new THREE.BufferAttribute(handLinePositions,3));
-const handLineMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent:true, opacity:0.95 });
-const handLines = new THREE.LineSegments(handLineGeom, handLineMat);
-handGroup.add(handLines);
-
-// Markers
-const markerGeom = new THREE.SphereGeometry(2.6, 8, 6);
-const markerDetectMat = new THREE.MeshBasicMaterial({ color: 0x00ff88, transparent:true, opacity:0.95 });
-const markerUnderstandMat = new THREE.MeshBasicMaterial({ color: 0xffd166, transparent:true, opacity:0.95 });
-const markerDetect = new THREE.Mesh(markerGeom, markerDetectMat);
-const markerUnderstand = new THREE.Mesh(markerGeom, markerUnderstandMat);
-markerDetect.visible = false; markerUnderstand.visible = false;
-handGroup.add(markerDetect); handGroup.add(markerUnderstand);
-
-// helpers
-function lmToScene(lm){
-  const x = (lm.x - 0.5) * window.innerWidth * 0.06;
-  const y = -(lm.y - 0.5) * window.innerHeight * 0.045;
-  const z = (lm.z || 0) * 40;
-  return new THREE.Vector3(x,y,z);
+// تحويل إحداثيات MediaPipe إلى Three.js
+function lmToScene(lm) {
+    return {
+        x: (lm.x - 0.5) * 60 * (window.innerWidth / window.innerHeight),
+        y: -(lm.y - 0.5) * 60,
+        z: -lm.z * 50
+    };
 }
 
-const heart=(t)=> new THREE.Vector3(16*Math.pow(Math.sin(t),3),13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t),0);
-const spherePoint=(i)=>{ const phi=Math.acos(-1 + 2*i/COUNT); const th=Math.sqrt(COUNT*Math.PI)*phi; return new THREE.Vector3().setFromSphericalCoords(22,phi,th); };
+let handX = 0, handY = 0, targetShape = 'sphere', colorMode = 0, rotSpeed = 0.005;
 
-// state
-let handX=0, handY=0, scaleVal=1, rotSpeed=0.002, freeze=false;
-let colorMode=0, currentShape='sphere';
-const cooldown = { color:0, explosion:0, boost:0, reset:0, mouth:0 };
-
-// MediaPipe: use the visible video element as the camera source
-const videoEl = camPreview; // pass this directly to Camera
-
-// Hands and FaceMesh instances (global constructors provided by included scripts)
 const hands = new Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
-hands.setOptions({ maxNumHands:1, modelComplexity:1, minDetectionConfidence:0.55, minTrackingConfidence:0.55 });
+hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 });
 
-const faceMesh = new FaceMesh({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}` });
-faceMesh.setOptions({ maxNumFaces:1, refineLandmarks:true, minDetectionConfidence:0.5, minTrackingConfidence:0.5 });
+hands.onResults((res) => {
+    if (res.multiHandLandmarks && res.multiHandLandmarks.length > 0) {
+        const lm = res.multiHandLandmarks[0];
+        statusText.innerText = "تم رصد اليد ✅";
 
-// update hand visuals
-function updateHandVisuals(landmarks){
-  if(!landmarks){ threadLines.visible=false; handLines.visible=false; markerDetect.visible=false; markerUnderstand.visible=false; return; }
-  threadLines.visible=true; handLines.visible=true;
-  const wrist = lmToScene(landmarks[0]);
+        // تحديث موقع اليد
+        const p8 = lmToScene(lm[8]); // السبابة
+        handX = p8.x;
+        handY = p8.y;
 
-  // threads (wrist->tips 4,8,12,16,20)
-  const tips = [4,8,12,16,20];
-  for(let i=0;i<5;i++){
-    const p = lmToScene(landmarks[tips[i]]);
-    const base = i*6;
-    threadPositions[base+0]=wrist.x; threadPositions[base+1]=wrist.y; threadPositions[base+2]=wrist.z;
-    threadPositions[base+3]=p.x; threadPositions[base+4]=p.y; threadPositions[base+5]=p.z;
-  }
-  threadGeom.attributes.position.needsUpdate = true;
+        // رسم هيكل اليد
+        updateHandMesh(lm);
 
-  // skeleton lines
-  for(let i=0;i<HAND_CONN.length;i++){
-    const a=HAND_CONN[i][0], b=HAND_CONN[i][1];
-    const pa = lmToScene(landmarks[a]), pb = lmToScene(landmarks[b]);
-    const off = i*6;
-    handLinePositions[off+0]=pa.x; handLinePositions[off+1]=pa.y; handLinePositions[off+2]=pa.z;
-    handLinePositions[off+3]=pb.x; handLinePositions[off+4]=pb.y; handLinePositions[off+5]=pb.z;
-  }
-  handLineGeom.attributes.position.needsUpdate = true;
+        // اكتشاف الحركات
+        detectGestures(lm);
+    } else {
+        statusText.innerText = "ضع يدك أمام الكاميرا...";
+        handLines.visible = false;
+    }
+});
 
-  // marker at wrist
-  markerDetect.position.copy(wrist); markerDetect.visible=true;
-
-  // OK detection (thumb near index)
-  const dThumbIndex = Math.hypot(landmarks[4].x - landmarks[8].x, landmarks[4].y - landmarks[8].y);
-  if(dThumbIndex < 0.03){ markerUnderstand.position.copy(lmToScene(landmarks[9])); markerUnderstand.visible=true; }
-  else markerUnderstand.visible=false;
+function updateHandMesh(lm) {
+    handLines.visible = true;
+    const points = [];
+    const connections = [[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17]];
+    
+    connections.forEach(([a, b]) => {
+        const pA = lmToScene(lm[a]);
+        const pB = lmToScene(lm[b]);
+        points.push(new THREE.Vector3(pA.x, pA.y, pA.z));
+        points.push(new THREE.Vector3(pB.x, pB.y, pB.z));
+    });
+    handLinesGeo.setFromPoints(points);
 }
 
-// Hands results
-hands.onResults((res)=>{
-  const now = performance.now();
-  if(res.multiHandLandmarks && res.multiHandLandmarks.length>0){
-    const lm = res.multiHandLandmarks[0];
-    updateHandVisuals(lm);
+let lastColorChange = 0;
+function detectGestures(lm) {
+    const now = Date.now();
+    
+    // 1. القبضة (Fist) -> قلب
+    const isFist = lm[8].y > lm[6].y && lm[12].y > lm[10].y && lm[16].y > lm[14].y;
+    targetShape = isFist ? 'heart' : 'sphere';
 
-    // pointer pos
-    handX = (lm[8].x - 0.5) * window.innerWidth * 0.06;
-    handY = -(lm[8].y - 0.5) * window.innerHeight * 0.045;
-
-    // pinch scale
-    const dx = lm[4].x - lm[8].x, dy = lm[4].y - lm[8].y;
-    scaleVal = Math.max(0.5, Math.sqrt(dx*dx + dy*dy) * 8);
-
-    // fist
-    const isFist = (lm[12].y > lm[9].y);
-    currentShape = isFist ? 'heart' : 'sphere';
-
-    // V sign -> color change
-    const indexUp = lm[8].y < lm[6].y;
-    const middleUp = lm[12].y < lm[10].y;
-    const ringUp = lm[16].y < lm[14].y;
-    if(indexUp && middleUp && !ringUp && now - cooldown.color > 700){
-      colorMode = (colorMode + 1) % 3; cooldown.color = now; statusText.innerText='تبديل اللون';
+    // 2. علامة V -> تغيير لون
+    const isV = lm[8].y < lm[6].y && lm[12].y < lm[10].y && lm[16].y > lm[14].y;
+    if (isV && now - lastColorChange > 1000) {
+        colorMode = (colorMode + 1) % 3;
+        lastColorChange = now;
     }
 
-    // thumb up -> boost rotation
-    const thumbUp = lm[4].y < lm[3].y;
-    if(thumbUp && now - cooldown.boost > 800){
-      cooldown.boost = now; rotSpeed = 0.02; setTimeout(()=>rotSpeed = 0.002, 500); statusText.innerText='زيادة سرعة الدوران';
-    }
+    // 3. إبهام للأعلى -> تسريع
+    const isThumbUp = lm[4].y < lm[3].y && lm[8].x > lm[5].x;
+    rotSpeed = isThumbUp ? 0.05 : 0.005;
+}
 
-    // rock -> explosion
-    const pinkyUp = lm[20].y < lm[18].y;
-    const rock = indexUp && pinkyUp && (lm[12].y > lm[10].y);
-    if(rock && now - cooldown.explosion > 900){
-      cooldown.explosion = now;
-      for(let i=0;i<COUNT;i++){ vel[i*3] += (Math.random()-.5)*8; vel[i*3+1] += (Math.random()-.5)*8; vel[i*3+2] += (Math.random()-.5)*8; }
-      statusText.innerText='تفجير!';
-    }
-
-    // open hand -> freeze
-    const openHand = indexUp && middleUp && ringUp && pinkyUp;
-    freeze = openHand;
-    if(freeze) statusText.innerText = 'تجميد المشهد';
-
-    // wave history for reset
-    if(!hands._wave) hands._wave = [];
-    hands._wave.push(lm[8].x);
-    if(hands._wave.length > 10) hands._wave.shift();
-    const mn = Math.min(...hands._wave), mx = Math.max(...hands._wave);
-    if(mx - mn > 0.36 && performance.now() - cooldown.reset > 900){
-      cooldown.reset = performance.now();
-      for(let i=0;i<COUNT;i++){
-        positions[i*3] = (Math.random()-.5)*120; positions[i*3+1] = (Math.random()-.5)*120; positions[i*3+2] = (Math.random()-.5)*120;
-        vel[i*3]=vel[i*3+1]=vel[i*3+2]=0;
-      }
-      statusText.innerText='إعادة ضبط';
-    }
-
-  } else {
-    updateHandVisuals(null);
-    statusText.innerText = 'لم تُكتشف يد — قرب يدك للكاميرا';
-  }
+// أشكال الجزيئات
+const heartFn = (t) => ({
+    x: 16 * Math.pow(Math.sin(t), 3) / 1.5,
+    y: (13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t)) / 1.5
 });
 
-// FaceMesh results -> mouth open sparks (use landmarks 13 & 14)
-faceMesh.onResults((res)=>{
-  const now = performance.now();
-  if(res.multiFaceLandmarks && res.multiFaceLandmarks.length>0){
-    const fl = res.multiFaceLandmarks[0];
-    const a = fl[13], b = fl[14];
-    if(a && b){
-      const d = Math.hypot(a.x - b.x, a.y - b.y);
-      if(d > 0.037 && now - cooldown.mouth > 900){
-        cooldown.mouth = now;
-        for(let k=0;k<Math.floor(COUNT/6);k++){
-          const j = Math.floor(Math.random()*COUNT);
-          vel[j*3] += (Math.random()-.5)*30; vel[j*3+1] += Math.random()*45; vel[j*3+2] += (Math.random()-.5)*30;
+function animate() {
+    requestAnimationFrame(animate);
+    const time = Date.now() * 0.001;
+    const posAttr = geo.attributes.position;
+    const colAttr = geo.attributes.color;
+
+    for (let i = 0; i < COUNT; i++) {
+        let tx, ty, tz = 0;
+        if (targetShape === 'heart') {
+            const t = (i / COUNT) * Math.PI * 2;
+            const p = heartFn(t);
+            tx = p.x + handX;
+            ty = p.y + handY;
+        } else {
+            const angle = (i / COUNT) * Math.PI * 2;
+            tx = Math.cos(angle + time) * 15 + handX;
+            ty = Math.sin(angle + time) * 15 + handY;
         }
-        statusText.innerText='فتح الفم: شرار!';
-      }
-    }
-  }
-});
 
-// start camera (pass camPreview directly to Camera to avoid black preview)
-startButton.onclick = async ()=>{
-  overlay.style.display = 'none';
-  statusText.innerText = 'جاري طلب إذن الكاميرا...';
-  try{
-    const cam = new Camera(videoEl, {
-      onFrame: async ()=>{
-        // send the current video frame to both models
-        await hands.send({image: videoEl});
-        await faceMesh.send({image: videoEl});
-      },
-      width: 640, height: 480
+        // تحريك ناعم نحو الهدف
+        posAttr.array[i*3] += (tx - posAttr.array[i*3]) * 0.1;
+        posAttr.array[i*3+1] += (ty - posAttr.array[i*3+1]) * 0.1;
+        
+        // تحديث الألوان
+        if(colorMode === 0) { colAttr.setXYZ(i, 0, 1, 0.8); }
+        else if(colorMode === 1) { colAttr.setXYZ(i, 1, 0.2, 0.5); }
+        else { colAttr.setXYZ(i, 1, 1, 0); }
+    }
+
+    posAttr.needsUpdate = true;
+    colAttr.needsUpdate = true;
+    particles.rotation.y += rotSpeed;
+    renderer.render(scene, camera);
+}
+
+startButton.onclick = async () => {
+    overlay.style.display = 'none';
+    const cameraHelper = new Camera(videoEl, {
+        onFrame: async () => { await hands.send({ image: videoEl }); },
+        width: 640, height: 480
     });
-    await cam.start();
-    // ensure preview plays
-    try{ videoEl.play(); }catch(e){ /* autoplay policy */ }
-    statusText.innerText = 'كاميرا شغّالة — قرب يدك وفمك للكاميرا';
+    cameraHelper.start();
     animate();
-  }catch(err){
-    console.error('Camera start error', err);
-    statusText.innerText = 'خطأ بالكاميرا: ' + (err && err.message ? err.message : err);
-    overlay.style.display = 'flex';
-  }
 };
 
-// animation loop — use setXYZ for positions updates to ensure three.js sees them
-let t = 0;
-function animate(){
-  requestAnimationFrame(animate);
-  if(!freeze) t += 0.012;
-
-  const attrPos = geo.attributes.position;
-  const attrCol = geo.attributes.color;
-
-  for(let i=0;i<COUNT;i++){
-    const xIdx = i;
-    // apply velocity
-    positions[i*3] += vel[i*3]*0.02;
-    positions[i*3+1] += vel[i*3+1]*0.02;
-    positions[i*3+2] += vel[i*3+2]*0.02;
-
-    // target
-    const target = (currentShape === 'heart') ? heart((i/COUNT)*Math.PI*2).multiplyScalar(scaleVal*1.6) : spherePoint(i).multiplyScalar(scaleVal*1.2);
-    const noise = Math.sin(t + i) * 0.6;
-
-    const nx = positions[i*3] + (target.x + handX + noise - positions[i*3]) * 0.09;
-    const ny = positions[i*3+1] + (target.y + handY + noise - positions[i*3+1]) * 0.09;
-    const nz = positions[i*3+2] + (target.z - positions[i*3+2]) * 0.085;
-
-    // update arrays and BufferAttribute via setXYZ (ensures internal updates)
-    attrPos.setXYZ(i, nx, ny, nz);
-    positions[i*3] = nx; positions[i*3+1] = ny; positions[i*3+2] = nz;
-
-    // damping velocities
-    vel[i*3] *= 0.93; vel[i*3+1] *= 0.93; vel[i*3+2] *= 0.93;
-
-    // colors
-    if(colorMode===0) attrCol.setXYZ(i, 0.6, 0.6, 1);
-    else if(colorMode===1) attrCol.setXYZ(i, 1, 0.45, 0.5);
-    else attrCol.setXYZ(i, 0.35, 0.95, 0.6);
-  }
-
-  attrPos.needsUpdate = true;
-  attrCol.needsUpdate = true;
-  threadGeom.attributes.position.needsUpdate = true;
-  handLineGeom.attributes.position.needsUpdate = true;
-
-  particles.rotation.y += rotSpeed;
-  renderer.render(scene, camera);
-}
-
-// resize
-window.addEventListener('resize', ()=>{
-  camera.aspect = window.innerWidth/window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
 });
 </script>
 </body>
 </html>
+
