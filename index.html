@@ -3,60 +3,44 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>تحكم باليد - نسخة مطورة</title>
+<title>تحكم احترافي باليدين والفم</title>
 <style>
-  body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; }
-  /* جعل الكاميرا في الخلفية بملء الشاشة */
-  #camPreview {
-    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-    object-fit: cover; transform: scaleX(-1); z-index: 1;
-  }
-  /* الكانفاس فوق الكاميرا */
-  canvas { position: fixed; top: 0; left: 0; z-index: 10; pointer-events: none; }
-  
-  #overlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.7);
-    display: flex; align-items: center; justify-content: center;
-    z-index: 1000; flex-direction: column; color: white;
-  }
-  button {
-    padding: 15px 30px; border-radius: 30px; border: none;
-    background: #00d1b2; color: white; cursor: pointer; font-size: 1.2rem;
-  }
-  #status {
-    position: fixed; top: 20px; width: 100%; text-align: center;
-    color: #00ff88; font-weight: bold; z-index: 100; text-shadow: 0 2px 4px rgba(0,0,0,0.5);
-  }
-  #legend {
-    position: fixed; bottom: 20px; right: 20px; padding: 15px;
-    background: rgba(0,0,0,0.6); color: white; border-radius: 15px;
-    z-index: 100; font-size: 0.8rem; pointer-events: none;
-  }
+  body{margin:0;overflow:hidden;background:#000;color:#fff;font-family:Segoe UI,Arial}
+  canvas{display:block}
+  #overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;z-index:1000;flex-direction:column;gap:10px}
+  button{padding:12px 25px;border-radius:999px;border:none;background:#ff4757;color:#fff;cursor:pointer;font-size:1.1rem;transition:0.3s}
+  button:hover{background:#ff6b81;transform:scale(1.05)}
+  #status{position:fixed;bottom:12px;left:0;right:0;text-align:center;z-index:40;color:#00ff88;font-weight:bold}
+  #legend{position:fixed;top:12px;left:12px;padding:12px;background:rgba(0,0,0,.6);backdrop-filter:blur(8px);border-radius:12px;z-index:40;font-size:.85rem;border:1px solid rgba(255,255,255,0.1)}
+  /* شكل الكاميرا القديم الجميل */
+  #camBox{position:fixed;bottom:12px;right:12px;width:220px;height:160px;border-radius:15px;overflow:hidden;z-index:50;border:2px solid #ff4757;background:#000;box-shadow: 0 0 15px rgba(255,71,87,0.3)}
+  #camBox video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
 </style>
 </head>
 <body>
 
 <div id="overlay">
-  <h2>تجربة التحكم باليد (AR)</h2>
-  <p>تأكد من إضاءة جيدة للسماح للكاميرا بالتعرف على اليد</p>
-  <button id="startButton">ابدأ التجربة</button>
+  <h2 style="margin:0">التحكم المتقدم (يدين + فم)</h2>
+  <p style="color:#ccc">استخدم يديك الاثنتين للتحكم بالحجم والمكان</p>
+  <button id="startButton">ابدأ الآن</button>
 </div>
 
-<div id="status">انتظار التشغيل...</div>
+<div id="status">جاري التحميل...</div>
 
 <div id="legend">
-  <b>🎮 دليل الحركات:</b><br>
-  ☝️ سبابة واحدة: تحريك الجزيئات<br>
-  ✊ قبضة يد: شكل قلب ❤️<br>
-  ✌️ علامة V: تغيير الألوان<br>
-  👍 إبهام للأعلى: تسريع الدوران<br>
-  🖐 كف مفتوح: تجميد الحركة
+  <b>🎮 التحكم الثنائي ✌️:</b><br>
+  • يد واحدة: يتبع السبابة.<br>
+  • يدين: التحكم بالموقع (المنتصف) والحجم (المسافة).<br>
+  • قبض اليد: شكل ❤️<br>
+  • فتح الفم 👄: تفجير الشرار بعيداً.<br>
+  • تقريب اليدين جداً: تثبيت/إلغاء تثبيت الشكل.<br>
 </div>
 
-<video id="camPreview" autoplay muted playsinline></video>
+<div id="camBox"><video id="camPreview" autoplay muted playsinline></video></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
 
 <script type="module">
 import * as THREE from 'https://cdn.skypack.dev/three@0.132.2';
@@ -66,165 +50,209 @@ const overlay = document.getElementById('overlay');
 const statusText = document.getElementById('status');
 const videoEl = document.getElementById('camPreview');
 
-// إعداد Three.js بخلفية شفافة
+// إعداد المشهد
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000);
+const renderer = new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setClearColor(0x000000, 0); // شفافية كاملة
 document.body.appendChild(renderer.domElement);
+camera.position.z = 80;
 
-camera.position.z = 50;
-
-// إنشاء الجزيئات
-const COUNT = 1500;
+// نظام الجزيئات (الشرار القديم)
+const COUNT = 1600;
 const geo = new THREE.BufferGeometry();
-const positions = new Float32Array(COUNT * 3);
-const colors = new Float32Array(COUNT * 3);
-for(let i=0; i<COUNT; i++) {
-    positions[i*3] = (Math.random()-0.5)*100;
-    positions[i*3+1] = (Math.random()-0.5)*100;
-    positions[i*3+2] = (Math.random()-0.5)*100;
-}
-geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+const positions = new Float32Array(COUNT*3);
+const colors = new Float32Array(COUNT*3);
+const vel = new Float32Array(COUNT*3);
 
-const mat = new THREE.PointsMaterial({ size: 0.7, vertexColors: true, transparent: true, opacity: 0.8 });
+for(let i=0;i<COUNT;i++){
+  positions[i*3] = (Math.random()-.5)*150;
+  positions[i*3+1] = (Math.random()-.5)*150;
+  positions[i*3+2] = (Math.random()-.5)*150;
+  vel[i*3]=vel[i*3+1]=vel[i*3+2]=0;
+}
+geo.setAttribute('position', new THREE.BufferAttribute(positions,3));
+geo.setAttribute('color', new THREE.BufferAttribute(colors,3));
+
+const sprite = new THREE.TextureLoader().load('https://threejs.org/examples/textures/sprites/disc.png');
+const mat = new THREE.PointsMaterial({ size: 0.8, vertexColors:true, transparent:true, blending:THREE.AdditiveBlending, map:sprite, depthWrite:false });
 const particles = new THREE.Points(geo, mat);
 scene.add(particles);
 
-// خيوط اليد (الهيكل العظمي)
-const handLinesGeo = new THREE.BufferGeometry();
-const handLinesMat = new THREE.LineBasicMaterial({ color: 0x00ffff, linewidth: 2 });
-const handLines = new THREE.LineSegments(handLinesGeo, handLinesMat);
-scene.add(handLines);
+// هيكل اليدين (للرسم)
+const handGroup = new THREE.Group();
+scene.add(handGroup);
+const handLinesArray = [];
 
-// تحويل إحداثيات MediaPipe إلى Three.js
+function createHandMesh() {
+    const g = new THREE.BufferGeometry();
+    const m = new THREE.LineBasicMaterial({ color: 0x00ff88, transparent:true, opacity:0.6 });
+    const l = new THREE.LineSegments(g, m);
+    handGroup.add(l);
+    return { geometry: g, lines: l };
+}
+const hand1 = createHandMesh();
+const hand2 = createHandMesh();
+
+// الثوابت الرياضية للأشكال
+const heart = (t) => new THREE.Vector3(16*Math.pow(Math.sin(t),3), 13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t), 0);
+const spherePoint = (i) => {
+    const phi = Math.acos(-1 + 2*i/COUNT);
+    const th = Math.sqrt(COUNT*Math.PI)*phi;
+    return new THREE.Vector3().setFromSphericalCoords(20, phi, th);
+};
+
+// الحالة (State)
+let handPos = new THREE.Vector3(0,0,0);
+let scaleVal = 1;
+let currentShape = 'sphere';
+let isPinned = false;
+let colorMode = 0;
+const cooldown = { mouth: 0, pin: 0 };
+
 function lmToScene(lm) {
-    return {
-        x: (lm.x - 0.5) * 60 * (window.innerWidth / window.innerHeight),
-        y: -(lm.y - 0.5) * 60,
-        z: -lm.z * 50
-    };
+    return new THREE.Vector3((lm.x - 0.5) * 110, -(lm.y - 0.5) * 80, -lm.z * 50);
 }
 
-let handX = 0, handY = 0, targetShape = 'sphere', colorMode = 0, rotSpeed = 0.005;
-
+// إعداد Mediapipe
 const hands = new Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
-hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 });
+hands.setOptions({ maxNumHands: 2, modelComplexity: 1, minDetectionConfidence: 0.6, minTrackingConfidence: 0.6 });
+
+const faceMesh = new FaceMesh({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}` });
+faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true });
 
 hands.onResults((res) => {
     if (res.multiHandLandmarks && res.multiHandLandmarks.length > 0) {
+        statusText.innerText = res.multiHandLandmarks.length === 2 ? "تحكم ثنائي مفعل ✌️" : "يتم التحكم بيد واحدة";
+        
+        let p1 = lmToScene(res.multiHandLandmarks[0][8]); // سبابة اليد 1
+        
+        if (res.multiHandLandmarks.length === 2) {
+            let p2 = lmToScene(res.multiHandLandmarks[1][8]); // سبابة اليد 2
+            
+            if (!isPinned) {
+                handPos.lerp(new THREE.Vector3().addVectors(p1, p2).multiplyScalar(0.5), 0.2);
+                let dist = p1.distanceTo(p2);
+                scaleVal = THREE.MathUtils.lerp(scaleVal, dist / 25, 0.1);
+            }
+
+            // حركة التثبيت (تقريب اليدين جداً)
+            if (p1.distanceTo(p2) < 5 && Date.now() - cooldown.pin > 1500) {
+                isPinned = !isPinned;
+                cooldown.pin = Date.now();
+                statusText.innerText = isPinned ? "تم تثبيت الشكل في الفضاء 📍" : "تم إلغاء التثبيت";
+            }
+        } else {
+            if (!isPinned) handPos.lerp(p1, 0.2);
+        }
+
+        // تحديد الشكل بناءً على قبضة اليد
         const lm = res.multiHandLandmarks[0];
-        statusText.innerText = "تم رصد اليد ✅";
-
-        // تحديث موقع اليد
-        const p8 = lmToScene(lm[8]); // السبابة
-        handX = p8.x;
-        handY = p8.y;
-
-        // رسم هيكل اليد
-        updateHandMesh(lm);
-
-        // اكتشاف الحركات
-        detectGestures(lm);
+        currentShape = (lm[8].y > lm[6].y && lm[12].y > lm[10].y) ? 'heart' : 'sphere';
+        
+        updateHandSkeleton(res.multiHandLandmarks);
     } else {
-        statusText.innerText = "ضع يدك أمام الكاميرا...";
-        handLines.visible = false;
+        statusText.innerText = "أظهر يديك للكاميرا...";
+        hand1.lines.visible = false;
+        hand2.lines.visible = false;
     }
 });
 
-function updateHandMesh(lm) {
-    handLines.visible = true;
-    const points = [];
-    const connections = [[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17]];
-    
-    connections.forEach(([a, b]) => {
-        const pA = lmToScene(lm[a]);
-        const pB = lmToScene(lm[b]);
-        points.push(new THREE.Vector3(pA.x, pA.y, pA.z));
-        points.push(new THREE.Vector3(pB.x, pB.y, pB.z));
+function updateHandSkeleton(allLms) {
+    [hand1, hand2].forEach((h, i) => {
+        if (allLms[i]) {
+            h.lines.visible = true;
+            const pts = [];
+            const conn = [[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17]];
+            conn.forEach(([a,b]) => {
+                pts.push(lmToScene(allLms[i][a]), lmToScene(allLms[i][b]));
+            });
+            h.geometry.setFromPoints(pts);
+        } else {
+            h.lines.visible = false;
+        }
     });
-    handLinesGeo.setFromPoints(points);
 }
 
-let lastColorChange = 0;
-function detectGestures(lm) {
-    const now = Date.now();
-    
-    // 1. القبضة (Fist) -> قلب
-    const isFist = lm[8].y > lm[6].y && lm[12].y > lm[10].y && lm[16].y > lm[14].y;
-    targetShape = isFist ? 'heart' : 'sphere';
-
-    // 2. علامة V -> تغيير لون
-    const isV = lm[8].y < lm[6].y && lm[12].y < lm[10].y && lm[16].y > lm[14].y;
-    if (isV && now - lastColorChange > 1000) {
-        colorMode = (colorMode + 1) % 3;
-        lastColorChange = now;
+faceMesh.onResults((res) => {
+    if (res.multiFaceLandmarks && res.multiFaceLandmarks.length > 0) {
+        const fl = res.multiFaceLandmarks[0];
+        const topLip = fl[13], botLip = fl[14];
+        if (Math.abs(topLip.y - botLip.y) > 0.04 && Date.now() - cooldown.mouth > 1000) {
+            cooldown.mouth = Date.now();
+            statusText.innerText = "👄 تفجير الفم!";
+            for (let i = 0; i < COUNT; i++) {
+                vel[i*3] += (Math.random()-0.5) * 60;
+                vel[i*3+1] += (Math.random()-0.5) * 60;
+                vel[i*3+2] += (Math.random()-0.5) * 60;
+            }
+        }
     }
-
-    // 3. إبهام للأعلى -> تسريع
-    const isThumbUp = lm[4].y < lm[3].y && lm[8].x > lm[5].x;
-    rotSpeed = isThumbUp ? 0.05 : 0.005;
-}
-
-// أشكال الجزيئات
-const heartFn = (t) => ({
-    x: 16 * Math.pow(Math.sin(t), 3) / 1.5,
-    y: (13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t)) / 1.5
 });
 
 function animate() {
     requestAnimationFrame(animate);
-    const time = Date.now() * 0.001;
+    const time = Date.now() * 0.002;
     const posAttr = geo.attributes.position;
     const colAttr = geo.attributes.color;
 
     for (let i = 0; i < COUNT; i++) {
-        let tx, ty, tz = 0;
-        if (targetShape === 'heart') {
-            const t = (i / COUNT) * Math.PI * 2;
-            const p = heartFn(t);
-            tx = p.x + handX;
-            ty = p.y + handY;
+        // تطبيق الفيزياء (السرعة)
+        positions[i*3] += vel[i*3] * 0.05;
+        positions[i*3+1] += vel[i*3+1] * 0.05;
+        positions[i*3+2] += vel[i*3+2] * 0.05;
+
+        // القوة الدافعة للعودة للشكل
+        let target;
+        if (currentShape === 'heart') {
+            target = heart((i/COUNT)*Math.PI*2).multiplyScalar(scaleVal * 1.5);
         } else {
-            const angle = (i / COUNT) * Math.PI * 2;
-            tx = Math.cos(angle + time) * 15 + handX;
-            ty = Math.sin(angle + time) * 15 + handY;
+            target = spherePoint(i).multiplyScalar(scaleVal);
         }
 
-        // تحريك ناعم نحو الهدف
-        posAttr.array[i*3] += (tx - posAttr.array[i*3]) * 0.1;
-        posAttr.array[i*3+1] += (ty - posAttr.array[i*3+1]) * 0.1;
+        const tx = target.x + handPos.x;
+        const ty = target.y + handPos.y;
+        const tz = target.z + handPos.z;
+
+        positions[i*3] += (tx - positions[i*3]) * 0.08;
+        positions[i*3+1] += (ty - positions[i*3+1]) * 0.08;
+        positions[i*3+2] += (tz - positions[i*3+2]) * 0.08;
+
+        // تباطؤ السرعة (Damping)
+        vel[i*3] *= 0.9; vel[i*3+1] *= 0.9; vel[i*3+2] *= 0.9;
+
+        posAttr.setXYZ(i, positions[i*3], positions[i*3+1], positions[i*3+2]);
         
-        // تحديث الألوان
-        if(colorMode === 0) { colAttr.setXYZ(i, 0, 1, 0.8); }
-        else if(colorMode === 1) { colAttr.setXYZ(i, 1, 0.2, 0.5); }
-        else { colAttr.setXYZ(i, 1, 1, 0); }
+        // الألوان (تتغير مع الحركة)
+        const hue = (Math.sin(time + i/COUNT) * 0.5 + 0.5);
+        if(currentShape === 'heart') colAttr.setXYZ(i, 1, 0.2, 0.3);
+        else colAttr.setXYZ(i, 0.2, hue, 1);
     }
 
     posAttr.needsUpdate = true;
     colAttr.needsUpdate = true;
-    particles.rotation.y += rotSpeed;
+    particles.rotation.y += 0.005;
     renderer.render(scene, camera);
 }
 
 startButton.onclick = async () => {
     overlay.style.display = 'none';
-    const cameraHelper = new Camera(videoEl, {
-        onFrame: async () => { await hands.send({ image: videoEl }); },
+    const cam = new Camera(videoEl, {
+        onFrame: async () => {
+            await hands.send({ image: videoEl });
+            await faceMesh.send({ image: videoEl });
+        },
         width: 640, height: 480
     });
-    cameraHelper.start();
+    cam.start();
     animate();
 };
 
 window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.aspect = window.innerWidth/window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
 });
 </script>
 </body>
 </html>
-
