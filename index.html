@@ -3,184 +3,168 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>نظام جزيئات تفاعلي باليد</title>
+    <title>نظام جزيئات نيون تفاعلي</title>
     <style>
-        /* لجعل العرض يملأ الشاشة بالكامل */
-        body { margin: 0; overflow: hidden; background-color: #000; }
+        body { margin: 0; overflow: hidden; background-color: #000; color: white; font-family: sans-serif; }
         canvas { display: block; }
-        
-        /* رسالة توضيحية تظهر في البداية */
-        #ui-overlay {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            color: white;
-            font-family: Arial, sans-serif;
-            pointer-events: none;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        #overlay {
+            position: absolute; top: 20px; left: 20px; pointer-events: none;
+            background: rgba(0,0,0,0.5); padding: 15px; border-radius: 10px;
         }
+        #status { color: #00ff88; font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <div id="ui-overlay">
-        <h3>نظام جزيئات 3D تفاعلي</h3>
-        <p>• حرك يدك للتحكم بالموقع</p>
-        <p>• قرب/ابعد أصابعك (الإبهام والسبابة) للتكبير والتصغير</p>
-        <p>• ارفع الخنصر (الاصبع الصغير) لتغيير الشكل لقلب</p>
+    <div id="overlay">
+        <h2>التحكم بالذكاء الاصطناعي</h2>
+        <p id="status">جاري تشغيل الكاميرا...</p>
+        <p>• افتح يدك (شكل زحل) | اغلق يدك (شكل قلب)</p>
+        <p>• المسافة بين الإبهام والسبابة تتحكم بالحجم</p>
     </div>
 
     <script type="module">
         import * as THREE from 'https://cdn.skypack.dev/three@0.132.2';
         import { Hands } from 'https://cdn.jsdelivr.net/npm/@mediapipe/hands';
 
-        // --- 1. إعداد المشهد (Scene Setup) ---
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-        renderer.setPixelRatio(window.devicePixelRatio);
         renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
         document.body.appendChild(renderer.domElement);
 
-        camera.position.z = 60;
+        camera.position.z = 80;
 
-        // --- 2. نظام الجزيئات (Particle System) ---
-        const PARTICLE_COUNT = 8000; // عدد الجزيئات
+        // --- نظام الجزيئات المحسن ---
+        const PARTICLE_COUNT = 10000;
         const geometry = new THREE.BufferGeometry();
         const positions = new Float32Array(PARTICLE_COUNT * 3);
         const colors = new Float32Array(PARTICLE_COUNT * 3);
 
-        // توزيع عشوائي أولي
         for (let i = 0; i < PARTICLE_COUNT * 3; i++) {
             positions[i] = (Math.random() - 0.5) * 200;
-            colors[i] = Math.random();
         }
 
         geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
         geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
         const material = new THREE.PointsMaterial({
-            size: 0.7,
+            size: 0.6,
             vertexColors: true,
             transparent: true,
             blending: THREE.AdditiveBlending,
-            depthWrite: false
+            map: new THREE.TextureLoader().load('https://threejs.org/examples/textures/sprites/disc.png')
         });
 
         const particleSystem = new THREE.Points(geometry, material);
         scene.add(particleSystem);
 
-        // --- 3. دوال الأشكال الرياضية (Shape Logic) ---
-        
-        // شكل القلب
+        // --- منطق الأشكال ---
         const getHeartPoint = (t) => {
             const x = 16 * Math.pow(Math.sin(t), 3);
             const y = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
             return new THREE.Vector3(x * 1.5, y * 1.5, 0);
         };
 
-        // شكل كوكب زحل
-        const getSaturnPoint = (i) => {
-            if (i < PARTICLE_COUNT * 0.6) { // الكوكب (كرة)
-                const phi = Math.acos(-1 + (2 * i) / (PARTICLE_COUNT * 0.6));
-                const theta = Math.sqrt(PARTICLE_COUNT * 0.6 * Math.PI) * phi;
-                return new THREE.Vector3().setFromSphericalCoords(20, phi, theta);
-            } else { // الحلقات
-                const angle = Math.random() * Math.PI * 2;
-                const radius = 28 + Math.random() * 8;
-                return new THREE.Vector3(Math.cos(angle) * radius, (Math.random()-0.5) * 2, Math.sin(angle) * radius);
-            }
+        const getSpherePoint = (i) => {
+            const phi = Math.acos(-1 + (2 * i) / PARTICLE_COUNT);
+            const theta = Math.sqrt(PARTICLE_COUNT * Math.PI) * phi;
+            return new THREE.Vector3().setFromSphericalCoords(25, phi, theta);
         };
 
-        // --- 4. تتبع اليد (MediaPipe) ---
-        let handX = 0, handY = 0, pinchScale = 1;
-        let currentShape = 'saturn';
+        // --- تتبع اليد ---
+        let handX = 0, handY = 0, pinchScale = 1, currentShape = 'sphere';
+        const statusEl = document.getElementById('status');
 
         const hands = new Hands({
             locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
         });
 
-        hands.setOptions({
-            maxNumHands: 1,
-            modelComplexity: 1,
-            minDetectionConfidence: 0.5,
-            minTrackingConfidence: 0.5
-        });
+        hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.6 });
 
         hands.onResults((results) => {
+            statusEl.innerText = results.multiHandLandmarks.length > 0 ? "تم رصد اليد ✅" : "حرك يدك أمام الكاميرا 🖐️";
             if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
                 const landmarks = results.multiHandLandmarks[0];
-
-                // تتبع موقع السبابة (نقطة رقم 8)
-                handX = (landmarks[8].x - 0.5) * -120;
+                handX = (landmarks[8].x - 0.5) * -150;
                 handY = (landmarks[8].y - 0.5) * -100;
 
-                // حساب المسافة بين الإبهام (4) والسبابة (8) للتكبير
                 const dx = landmarks[4].x - landmarks[8].x;
                 const dy = landmarks[4].y - landmarks[8].y;
-                pinchScale = Math.sqrt(dx*dx + dy*dy) * 8;
+                pinchScale = Math.max(0.2, Math.sqrt(dx*dx + dy*dy) * 12);
 
-                // تغيير الشكل إذا كان الخنصر (20) مرفوعاً فوق مفاصله
-                if (landmarks[20].y < landmarks[18].y) {
-                    currentShape = 'heart';
-                } else {
-                    currentShape = 'saturn';
-                }
+                // كشف القبضة: إذا كان طرف الإصبع الأوسط قريباً من كف اليد
+                currentShape = landmarks[12].y > landmarks[9].y ? 'heart' : 'sphere';
             }
         });
 
-        // تشغيل الكاميرا
+        // تشغيل الكاميرا مع معالجة الأخطاء
         const video = document.createElement('video');
         async function setupCamera() {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-            video.srcObject = stream;
-            video.play();
-            
-            const predict = async () => {
-                await hands.send({image: video});
-                requestAnimationFrame(predict);
-            };
-            predict();
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { width: 640, height: 480 } 
+                });
+                video.srcObject = stream;
+                await video.play();
+                statusEl.innerText = "الكاميرا تعمل، جاري التحميل...";
+                
+                const predict = async () => {
+                    await hands.send({image: video});
+                    requestAnimationFrame(predict);
+                };
+                predict();
+            } catch (err) {
+                statusEl.innerText = "خطأ: تأكد من تفعيل HTTPS وإذن الكاميرا ❌";
+                console.error(err);
+            }
         }
         setupCamera();
 
-        // --- 5. حلقة التحريك والتحول (Animation & Morphing) ---
+        // --- حلقة التحريك ---
+        let time = 0;
         function animate() {
             requestAnimationFrame(animate);
+            time += 0.01;
 
             const posAttr = geometry.attributes.position;
+            const colAttr = geometry.attributes.color;
             
             for (let i = 0; i < PARTICLE_COUNT; i++) {
                 let target = new THREE.Vector3();
-                
                 if (currentShape === 'heart') {
                     target = getHeartPoint((i / PARTICLE_COUNT) * Math.PI * 2).multiplyScalar(pinchScale);
                 } else {
-                    target = getSaturnPoint(i).multiplyScalar(pinchScale);
+                    target = getSpherePoint(i).multiplyScalar(pinchScale);
                 }
 
-                // حركة ناعمة (Lerp) من الموقع الحالي إلى الموقع الهدف
                 const curX = posAttr.getX(i);
                 const curY = posAttr.getY(i);
                 const curZ = posAttr.getZ(i);
 
                 posAttr.setXYZ(
                     i,
-                    THREE.MathUtils.lerp(curX, target.x + handX, 0.1),
-                    THREE.MathUtils.lerp(curY, target.y + handY, 0.1),
-                    THREE.MathUtils.lerp(curZ, target.z, 0.1)
+                    curX + (target.x + handX - curX) * 0.1,
+                    curY + (target.y + handY - curY) * 0.1,
+                    curZ + (target.z - curZ) * 0.1
+                );
+
+                // ألوان نيون متغيرة
+                colAttr.setXYZ(i, 
+                    Math.abs(Math.sin(time * 0.5)), 
+                    Math.abs(Math.cos(time * 0.3)), 
+                    1.0
                 );
             }
             
             posAttr.needsUpdate = true;
-            particleSystem.rotation.y += 0.005; // دوران بسيط للمشهد
-            
+            colAttr.needsUpdate = true;
+            particleSystem.rotation.y += 0.002;
             renderer.render(scene, camera);
         }
-
         animate();
 
-        // تحديث أبعاد الشاشة عند التكبير/التصغير
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
@@ -189,3 +173,4 @@
     </script>
 </body>
 </html>
+
