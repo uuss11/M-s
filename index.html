@@ -1,322 +1,386 @@
-<!DOCTYPE html><html lang="ar">
+<!doctype html>
+<html lang="ar">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>تجربة التحكم باليد — مع خيوط وتمييز الفم</title>
-  <style>
-    body{margin:0;overflow:hidden;background:#000;font-family:'Segoe UI',Tahoma,Arial}
-    canvas{display:block}
-    #overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;z-index:1000;flex-direction:column;gap:12px}
-    button{padding:12px 24px;border-radius:999px;border:none;background:#ff4757;color:#fff;cursor:pointer;font-size:1rem}
-    #status{position:fixed;bottom:14px;left:0;right:0;text-align:center;color:#fff;z-index:10}
-    #legend{position:fixed;top:12px;left:12px;padding:10px 12px;background:rgba(0,0,0,0.55);color:#fff;font-size:.88rem;line-height:1.6;border-radius:10px;z-index:30;backdrop-filter:blur(6px);box-shadow:0 6px 18px rgba(0,0,0,.45);max-width:260px}
-    #legend b{display:block;margin-bottom:4px}
-    #camBox{position:fixed;bottom:12px;right:12px;width:220px;height:160px;border-radius:12px;overflow:hidden;z-index:40;border:2px solid rgba(255,255,255,0.18);box-shadow:0 8px 30px rgba(0,0,0,.6);background:#000}
-    #camBox video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>تحكم باليد — نسخة مصححة</title>
+<style>
+  body{margin:0;overflow:hidden;background:#000;color:#fff;font-family:Segoe UI,Arial}
+  canvas{display:block}
+  #overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;z-index:1000;flex-direction:column;gap:10px}
+  button{padding:10px 22px;border-radius:999px;border:none;background:#ff4757;color:#fff;cursor:pointer;font-size:1rem}
+  #status{position:fixed;bottom:12px;left:0;right:0;text-align:center;z-index:20}
+  #legend{position:fixed;top:12px;left:12px;padding:10px;background:rgba(0,0,0,.55);backdrop-filter:blur(6px);border-radius:10px;z-index:30;max-width:260px;font-size:.9rem}
+  #camBox{position:fixed;bottom:12px;right:12px;width:220px;height:160px;border-radius:12px;overflow:hidden;z-index:40;border:2px solid rgba(255,255,255,.12);background:#000}
+  #camBox video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+</style>
 </head>
-<body><div id="overlay">
-  <h2 style="color:#fff;margin:0">تجربة التحكم باليد — مُحسّن</h2>
-  <div style="color:#ddd">اضغط ابدأ ثم سمح للكاميرا</div>
+<body>
+
+<div id="overlay">
+  <h2 style="margin:0">تجربة التحكم باليد — مُصلّحة</h2>
+  <div style="color:#ddd">اضغط ابدأ واسمح للكاميرا (يفضل Chrome / localhost أو HTTPS)</div>
   <button id="startButton">ابدأ</button>
-</div><div id="status">جاهز</div><div id="legend">
-  <b>🎮 حركات التحكم</b>
-  🖐 تحريك السبابة: تحريك الجزيئات
-  <br>🤏 قرصة: تكبير / تصغير
-  <br>✌️ إصبعين: تغيير الألوان
-  <br>👍 إبهام لفوك: تسريع الدوران مؤقتاً
-  <br>🤘 روك: تفجير الجزيئات
-  <br>🖐 يد مفتوحة: تجميد المشهد
-  <br>👋 تلويح: إعادة ضبط المشهد
-  <br>👄 فتح الفم: شرار يتناثر بعيد
-  <br><small>ألوان وخيوط مرئية أعلى اليد والكف، وأشكال هندسية لما تُكتشف إشارات خاصة</small>
-</div><div id="camBox"><video id="camPreview" autoplay muted playsinline></video></div><!-- Mediapipe libs --><script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script><script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script><script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script><script type="module">
-  import * as THREE from 'https://cdn.skypack.dev/three@0.132.2';
+</div>
 
-  // عناصر الواجهة
-  const startButton = document.getElementById('startButton');
-  const overlay = document.getElementById('overlay');
-  const statusText = document.getElementById('status');
-  const camPreview = document.getElementById('camPreview');
+<div id="status">جاهز</div>
 
-  // ThreeJS
-  const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000);
-  const renderer = new THREE.WebGLRenderer({antialias:true,alpha:true});
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  document.body.appendChild(renderer.domElement);
-  camera.position.z = 85;
+<div id="legend">
+  <b>🎮 حركات</b><br>
+  🖐 سبابة → تحريك الجزيئات<br>
+  🤏 قرصة → تكبير/تصغير<br>
+  ✌️ إصبعين → تغيير الألوان<br>
+  👍 إبهام لفوك → دفعة سرعة الدوران<br>
+  🤘 روك → تفجير الجزيئات<br>
+  🖐 يد مفتوحة → تجميد<br>
+  👋 تلويح → إعادة ضبط<br>
+  👄 فتح الفم → شرار يتناثر بعيد
+</div>
 
-  // جزيئات
-  const COUNT = 2000;
-  const geo = new THREE.BufferGeometry();
-  const pos = new Float32Array(COUNT*3);
-  const col = new Float32Array(COUNT*3);
-  const vel = new Float32Array(COUNT*3); // سرعات إضافية للجزيئات (للشرار)
+<div id="camBox"><video id="camPreview" autoplay muted playsinline></video></div>
 
-  for(let i=0;i<COUNT;i++){
-    pos[i*3]=(Math.random()-.5)*120;
-    pos[i*3+1]=(Math.random()-.5)*120;
-    pos[i*3+2]=(Math.random()-.5)*120;
-    col[i*3]=0.6; col[i*3+1]=0.6; col[i*3+2]=1;
-    vel[i*3]=vel[i*3+1]=vel[i*3+2]=0;
+<!-- MediaPipe libs (non-module globals) -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
+
+<script type="module">
+import * as THREE from 'https://cdn.skypack.dev/three@0.132.2';
+
+// UI
+const startButton = document.getElementById('startButton');
+const overlay = document.getElementById('overlay');
+const statusText = document.getElementById('status');
+const camPreview = document.getElementById('camPreview');
+
+// Three setup
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000);
+const renderer = new THREE.WebGLRenderer({antialias:true,alpha:true});
+renderer.setPixelRatio(window.devicePixelRatio || 1);
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+camera.position.z = 85;
+
+// Particles
+let COUNT = 1400; // أقل لالتقاط أفضل على الأجهزة الضعيفة
+const geo = new THREE.BufferGeometry();
+const positions = new Float32Array(COUNT*3);
+const colors = new Float32Array(COUNT*3);
+const vel = new Float32Array(COUNT*3);
+for(let i=0;i<COUNT;i++){
+  positions[i*3] = (Math.random()-.5)*120;
+  positions[i*3+1] = (Math.random()-.5)*120;
+  positions[i*3+2] = (Math.random()-.5)*120;
+  colors[i*3]=0.6; colors[i*3+1]=0.6; colors[i*3+2]=1;
+  vel[i*3]=vel[i*3+1]=vel[i*3+2]=0;
+}
+geo.setAttribute('position', new THREE.BufferAttribute(positions,3));
+geo.setAttribute('color', new THREE.BufferAttribute(colors,3));
+const sprite = new THREE.TextureLoader().load('https://threejs.org/examples/textures/sprites/disc.png');
+const mat = new THREE.PointsMaterial({ size: 0.9, vertexColors:true, transparent:true, blending:THREE.AdditiveBlending, map:sprite, depthWrite:false });
+const particles = new THREE.Points(geo, mat);
+scene.add(particles);
+
+// Hand visuals group
+const handGroup = new THREE.Group();
+scene.add(handGroup);
+
+// THREADS: line segments from wrist to fingertips (5 segments)
+const threadPositions = new Float32Array(5 * 2 * 3); // 5 fingers * 2 points * xyz
+const threadGeom = new THREE.BufferGeometry();
+threadGeom.setAttribute('position', new THREE.BufferAttribute(threadPositions,3));
+const threadMat = new THREE.LineBasicMaterial({ color: 0x66ffff, transparent:true, opacity:0.9 });
+const threadLines = new THREE.LineSegments(threadGeom, threadMat);
+handGroup.add(threadLines);
+
+// HAND SKELETON segments (use map of connections)
+const HAND_CONN = [
+  [0,1],[1,2],[2,3],[3,4],
+  [0,5],[5,6],[6,7],[7,8],
+  [5,9],[9,10],[10,11],[11,12],
+  [9,13],[13,14],[14,15],[15,16],
+  [13,17],[17,18],[18,19],[19,20],[0,17]
+];
+const handLinePositions = new Float32Array(HAND_CONN.length * 2 * 3);
+const handLineGeom = new THREE.BufferGeometry();
+handLineGeom.setAttribute('position', new THREE.BufferAttribute(handLinePositions,3));
+const handLineMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent:true, opacity:0.9 });
+const handLines = new THREE.LineSegments(handLineGeom, handLineMat);
+handGroup.add(handLines);
+
+// Markers (detect / understand)
+const markerGeom = new THREE.SphereGeometry(2.6, 8, 6);
+const markerDetectMat = new THREE.MeshBasicMaterial({ color: 0x00ff88, transparent:true, opacity:0.95 });
+const markerUnderstandMat = new THREE.MeshBasicMaterial({ color: 0xffd166, transparent:true, opacity:0.95 });
+const markerDetect = new THREE.Mesh(markerGeom, markerDetectMat);
+const markerUnderstand = new THREE.Mesh(markerGeom, markerUnderstandMat);
+markerDetect.visible = false; markerUnderstand.visible = false;
+handGroup.add(markerDetect); handGroup.add(markerUnderstand);
+
+// helpers: mapping landmarks -> scene coords
+function lmToScene(lm){
+  const x = (lm.x - 0.5) * window.innerWidth * 0.06;
+  const y = -(lm.y - 0.5) * window.innerHeight * 0.045;
+  const z = (lm.z || 0) * 40;
+  return new THREE.Vector3(x,y,z);
+}
+
+// shapes
+const heart = (t)=> new THREE.Vector3(
+  16*Math.pow(Math.sin(t),3),
+  13*Math.cos(t) - 5*Math.cos(2*t) - 2*Math.cos(3*t) - Math.cos(4*t),
+  0
+);
+const spherePoint = (i)=> {
+  const phi = Math.acos(-1 + 2*i/COUNT);
+  const th = Math.sqrt(COUNT * Math.PI) * phi;
+  return new THREE.Vector3().setFromSphericalCoords(22, phi, th);
+};
+
+// state
+let handX=0, handY=0, scale=1, rotSpeed=0.002, freeze=false;
+let colorMode=0, currentShape='sphere';
+const cooldown = { color:0, explosion:0, boost:0, reset:0, mouth:0 };
+
+// MediaPipe video (hidden)
+const video = document.createElement('video');
+video.autoplay = true; video.muted = true; video.playsInline = true; video.style.display = 'none';
+document.body.appendChild(video);
+
+// MediaPipe Hands
+const hands = new Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
+hands.setOptions({ maxNumHands:1, modelComplexity:1, minDetectionConfidence:0.55, minTrackingConfidence:0.55 });
+
+// MediaPipe FaceMesh (for mouth)
+const faceMesh = new FaceMesh({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}` });
+faceMesh.setOptions({ maxNumFaces:1, refineLandmarks:true, minDetectionConfidence:0.5, minTrackingConfidence:0.5 });
+
+// debug helper (console)
+function dbg(...a){ /* console.log(...a); */ }
+
+// update visuals (threads + skeleton + markers)
+function updateHandVisuals(landmarks){
+  if(!landmarks){ threadLines.visible=false; handLines.visible=false; markerDetect.visible=false; markerUnderstand.visible=false; return; }
+  threadLines.visible = true; handLines.visible = true;
+
+  const wrist = lmToScene(landmarks[0]);
+
+  // threads: pairs (wrist -> fingertip)
+  const tips = [4,8,12,16,20];
+  for(let i=0;i<5;i++){
+    const p = lmToScene(landmarks[tips[i]]);
+    const base = i*6;
+    threadPositions[base+0] = wrist.x;
+    threadPositions[base+1] = wrist.y;
+    threadPositions[base+2] = wrist.z;
+    threadPositions[base+3] = p.x;
+    threadPositions[base+4] = p.y;
+    threadPositions[base+5] = p.z;
   }
-  geo.setAttribute('position', new THREE.BufferAttribute(pos,3));
-  geo.setAttribute('color', new THREE.BufferAttribute(col,3));
+  threadGeom.attributes.position.needsUpdate = true;
 
-  const sprite = new THREE.TextureLoader().load('https://threejs.org/examples/textures/sprites/disc.png');
-  const mat = new THREE.PointsMaterial({size:0.9,vertexColors:true,transparent:true,blending:THREE.AdditiveBlending,map:sprite,depthWrite:false});
-  const particles = new THREE.Points(geo,mat);
-  scene.add(particles);
-
-  // مجموعة لعرض خيوط اليد و الأشكال
-  const handGroup = new THREE.Group();
-  scene.add(handGroup);
-
-  // خطوط خيوط الأصابع
-  const threadMat = new THREE.LineBasicMaterial({ linewidth: 2, transparent:true });
-  const threadGeom = new THREE.BufferGeometry();
-  const THREAD_POINTS = 6 * 3 * 3; // تقريب، سيتم إعادة تهيئته ديناميكياً
-  const threadPositions = new Float32Array(5 * 2 * 3); // 5 أصابع، خط من المعصم(0) إلى طرف كل إصبع
-  threadGeom.setAttribute('position', new THREE.BufferAttribute(threadPositions,3));
-  const threads = new THREE.LineSegments(threadGeom, threadMat);
-  handGroup.add(threads);
-
-  // خطوط هيكل اليد (اتصالات Mediapipe)
-  const handLineMat = new THREE.LineBasicMaterial({linewidth:2,transparent:true});
-  const HAND_CONN = [
-    [0,1],[1,2],[2,3],[3,4],
-    [0,5],[5,6],[6,7],[7,8],
-    [5,9],[9,10],[10,11],[11,12],
-    [9,13],[13,14],[14,15],[15,16],
-    [13,17],[17,18],[18,19],[19,20],[0,17]
-  ];
-  const handLinePositions = new Float32Array(HAND_CONN.length * 2 * 3);
-  const handLineGeom = new THREE.BufferGeometry();
-  handLineGeom.setAttribute('position', new THREE.BufferAttribute(handLinePositions,3));
-  const handLines = new THREE.LineSegments(handLineGeom, handLineMat);
-  handGroup.add(handLines);
-
-  // أشكال هندسية صغيرة للتنبيه (مربع للكشف، دائرة للفهم...)
-  const markerGeom = new THREE.SphereGeometry(2.8, 8, 6);
-  const markerMatDetect = new THREE.MeshBasicMaterial({ color: 0x00ff88, transparent:true, opacity:0.9 });
-  const markerMatUnderstand = new THREE.MeshBasicMaterial({ color: 0xffd166, transparent:true, opacity:0.95 });
-  const markerDetect = new THREE.Mesh(markerGeom, markerMatDetect);
-  const markerUnderstand = new THREE.Mesh(markerGeom, markerMatUnderstand);
-  markerDetect.visible = false; markerUnderstand.visible = false;
-  handGroup.add(markerDetect); handGroup.add(markerUnderstand);
-
-  // أشكال الهدف
-  const heart=(t)=> new THREE.Vector3(16*Math.pow(Math.sin(t),3),13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t),0);
-  const sphere=(i)=>{ const phi=Math.acos(-1+2*i/COUNT); const th=Math.sqrt(COUNT*Math.PI)*phi; return new THREE.Vector3().setFromSphericalCoords(22,phi,th); };
-
-  // Mediapipe setup
-  let handX=0, handY=0, scale=1, rotSpeed=0.002, freeze=false;
-  let colorMode=0;
-  let currentShape='sphere';
-
-  // فيديو مخفي لـ Mediapipe
-  const video = document.createElement('video');
-  video.autoplay=true; video.muted=true; video.playsInline=true; video.style.display='none';
-  document.body.appendChild(video);
-
-  const hands = new Hands({ locateFile: (file)=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
-  hands.setOptions({ maxNumHands:1, modelComplexity:1, minDetectionConfidence:0.55, minTrackingConfidence:0.55 });
-
-  // Face Mesh for mouth detection
-  const faceMesh = new FaceMesh({ locateFile: (file)=>`https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}` });
-  faceMesh.setOptions({ maxNumFaces:1, refineLandmarks:true, minDetectionConfidence:0.5, minTrackingConfidence:0.5 });
-
-  let lastColorTime=0, lastExplosionTime=0, lastBoostTime=0, lastResetTime=0, lastMouthTime=0;
-  const COOLDOWN = 700; // ms
-
-  // Helper: map mediapipe landmark (normalized) to scene coords
-  function lmToScene(lm){
-    // lm.x, lm.y are 0..1 ; center them and scale
-    const x = (lm.x - 0.5) * window.innerWidth * 0.06;
-    const y = -(lm.y - 0.5) * window.innerHeight * 0.045;
-    const z = (lm.z || 0) * 40; // z is usually small negative
-    return new THREE.Vector3(x, y, z);
+  // skeleton lines using HAND_CONN
+  for(let i=0;i<HAND_CONN.length;i++){
+    const a = HAND_CONN[i][0], b = HAND_CONN[i][1];
+    const pa = lmToScene(landmarks[a]);
+    const pb = lmToScene(landmarks[b]);
+    const off = i*6;
+    handLinePositions[off+0]=pa.x; handLinePositions[off+1]=pa.y; handLinePositions[off+2]=pa.z;
+    handLinePositions[off+3]=pb.x; handLinePositions[off+4]=pb.y; handLinePositions[off+5]=pb.z;
   }
+  handLineGeom.attributes.position.needsUpdate = true;
 
-  // تحديث خطوط اليد
-  function updateHandVisuals(landmarks){
-    if(!landmarks) { threads.visible=false; handLines.visible=false; markerDetect.visible=false; markerUnderstand.visible=false; return; }
-    threads.visible=true; handLines.visible=true;
-    // wrist index 0
-    const wrist = lmToScene(landmarks[0]);
-    // update threads: from wrist to each fingertip 4,8,12,16,20
-    const tips = [4,8,12,16,20];
-    for(let i=0;i<5;i++){
-      const p = lmToScene(landmarks[tips[i]]);
-      threadPositions[i*6+0]=wrist.x; threadPositions[i*6+1]=wrist.y; threadPositions[i*6+2]=wrist.z;
-      threadPositions[i*6+3]=p.x; threadPositions[i*6+4]=p.y; threadPositions[i*6+5]=p.z;
+  // show marker at palm/wrist
+  markerDetect.position.copy(wrist);
+  markerDetect.visible = true;
+
+  // detect "OK"/understand: thumb near index
+  const dThumbIndex = Math.hypot(landmarks[4].x - landmarks[8].x, landmarks[4].y - landmarks[8].y);
+  if(dThumbIndex < 0.03){
+    markerUnderstand.position.copy(lmToScene(landmarks[9]));
+    markerUnderstand.visible = true;
+  } else markerUnderstand.visible = false;
+}
+
+// HANDS results
+hands.onResults((res)=>{
+  const now = performance.now();
+  if(res.multiHandLandmarks && res.multiHandLandmarks.length > 0){
+    const lm = res.multiHandLandmarks[0];
+    updateHandVisuals(lm);
+
+    // pointer pos (index tip)
+    handX = (lm[8].x - 0.5) * window.innerWidth * 0.06;
+    handY = -(lm[8].y - 0.5) * window.innerHeight * 0.045;
+
+    // pinch scale (thumb tip vs index tip)
+    const dx = lm[4].x - lm[8].x, dy = lm[4].y - lm[8].y;
+    scale = Math.max(0.5, Math.sqrt(dx*dx + dy*dy) * 8);
+
+    // fist detection -> heart
+    const isFist = (lm[12].y > lm[9].y);
+    currentShape = isFist ? 'heart' : 'sphere';
+
+    // V sign (index & middle up, ring down) -> change color (cooldown)
+    const indexUp = lm[8].y < lm[6].y;
+    const middleUp = lm[12].y < lm[10].y;
+    const ringUp = lm[16].y < lm[14].y;
+    if(indexUp && middleUp && !ringUp && now - cooldown.color > 700){
+      colorMode = (colorMode + 1) % 3;
+      cooldown.color = now;
+      statusText.innerText = 'تبديل اللون';
     }
-    threadGeom.attributes.position.needsUpdate = true;
-    // hand skeleton lines
-    for(let i=0;i<HAND_CONN.length;i++){
-      const a = HAND_CONN[i][0], b = HAND_CONN[i][1];
-      const pa = lmToScene(landmarks[a]);
-      const pb = lmToScene(landmarks[b]);
-      handLinePositions[i*6+0]=pa.x; handLinePositions[i*6+1]=pa.y; handLinePositions[i*6+2]=pa.z;
-      handLinePositions[i*6+3]=pb.x; handLinePositions[i*6+4]=pb.y; handLinePositions[i*6+5]=pb.z;
+
+    // thumb up -> boost rotation
+    const thumbUp = lm[4].y < lm[3].y;
+    if(thumbUp && now - cooldown.boost > 800){
+      cooldown.boost = now;
+      rotSpeed = 0.02;
+      setTimeout(()=> rotSpeed = 0.002, 550);
+      statusText.innerText = 'زيادة سرعة الدوران';
     }
-    handLineGeom.attributes.position.needsUpdate = true;
 
-    // marker show at palm (use landmark 0)
-    markerDetect.position.copy(wrist);
-    markerDetect.visible = true;
+    // rock: index & pinky up & middle down -> explosion
+    const pinkyUp = lm[20].y < lm[18].y;
+    const rock = indexUp && pinkyUp && (lm[12].y > lm[10].y);
+    if(rock && now - cooldown.explosion > 900){
+      cooldown.explosion = now;
+      for(let i=0;i<COUNT;i++){
+        vel[i*3] += (Math.random()-.5) * 8;
+        vel[i*3+1] += (Math.random()-.5) * 8;
+        vel[i*3+2] += (Math.random()-.5) * 8;
+      }
+      statusText.innerText = 'تفجير!';
+    }
 
-    // detect OK sign (thumb tip close to index tip)
-    const dThumbIndex = Math.hypot(landmarks[4].x-landmarks[8].x, landmarks[4].y-landmarks[8].y);
-    const ok = dThumbIndex < 0.03; // threshold
-    if(ok){ markerUnderstand.position.copy(lmToScene(landmarks[9])); markerUnderstand.visible=true; }
-    else markerUnderstand.visible=false;
+    // open hand -> freeze
+    const openHand = indexUp && middleUp && ringUp && pinkyUp;
+    freeze = openHand;
+    if(freeze) statusText.innerText = 'تجميد المشهد';
+
+    // wave detection for reset: track X history in res object (simple ring)
+    if(!hands._wave) hands._wave = [];
+    hands._wave.push(lm[8].x);
+    if(hands._wave.length > 10) hands._wave.shift();
+    const minX = Math.min(...hands._wave), maxX = Math.max(...hands._wave);
+    if(maxX - minX > 0.36 && performance.now() - cooldown.reset > 900){
+      cooldown.reset = performance.now();
+      for(let i=0;i<COUNT;i++){
+        positions[i*3] = (Math.random()-.5)*120;
+        positions[i*3+1] = (Math.random()-.5)*120;
+        positions[i*3+2] = (Math.random()-.5)*120;
+        vel[i*3]=vel[i*3+1]=vel[i*3+2]=0;
+      }
+      statusText.innerText = 'إعادة ضبط';
+    }
+
+  } else {
+    updateHandVisuals(null);
+    statusText.innerText = 'لم تُكتشف يد — قرب يدك للكاميرا';
   }
+});
 
-  // حالتين: يد مكتشفة أو لا
-  hands.onResults((results)=>{
-    const now = performance.now();
-    if(results.multiHandLandmarks && results.multiHandLandmarks.length>0){
-      const lm = results.multiHandLandmarks[0];
-      updateHandVisuals(lm);
-
-      // موضع السبابة يتحكم بالمشهد
-      handX = (lm[8].x - 0.5) * window.innerWidth * 0.06;
-      handY = -(lm[8].y - 0.5) * window.innerHeight * 0.045;
-
-      // قياس القرصة: المسافة بين الإبهام (4) وسبابة (8)
-      const dx = lm[4].x - lm[8].x; const dy = lm[4].y - lm[8].y;
-      scale = Math.max(0.52, Math.sqrt(dx*dx + dy*dy) * 8);
-
-      // شكل القبضة
-      const isFist = (lm[12].y > lm[9].y);
-      currentShape = isFist ? 'heart' : 'sphere';
-
-      // V sign
-      const indexUp = lm[8].y < lm[6].y;
-      const middleUp = lm[12].y < lm[10].y;
-      const ringUp = lm[16].y < lm[14].y;
-      if(indexUp && middleUp && !ringUp && (now - lastColorTime > COOLDOWN)){
-        colorMode = (colorMode + 1) % 3;
-        lastColorTime = now; statusText.innerText='تبديل اللون';
-      }
-
-      // thumb up (بسيط)
-      const thumbUp = lm[4].y < lm[3].y;
-      if(thumbUp && (now - lastBoostTime > 800)){
-        lastBoostTime = now; rotSpeed = 0.02; setTimeout(()=>rotSpeed=0.002,500); statusText.innerText='زيادة سرعة الدوران';
-      }
-
-      // rock: index & pinky up & middle down
-      const pinkyUp = lm[20].y < lm[18].y;
-      const rock = indexUp && pinkyUp && (lm[12].y > lm[10].y) && (now - lastExplosionTime > 900);
-      if(rock){ lastExplosionTime = now; for(let i=0;i<COUNT;i++){ vel[i*3]+=(Math.random()-.5)*8; vel[i*3+1]+=(Math.random()-.5)*8; vel[i*3+2]+=(Math.random()-.5)*8; } statusText.innerText='تفجير!'; }
-
-      // open hand -> freeze
-      const openHand = indexUp && middleUp && ringUp && pinkyUp;
-      freeze = openHand; if(freeze) statusText.innerText='تجميد المشهد';
-
-      // wave detection
-      if(!hands._wave) hands._wave = [];
-      hands._wave.push(lm[8].x);
-      if(hands._wave.length>8) hands._wave.shift();
-      const minX=Math.min(...hands._wave), maxX=Math.max(...hands._wave);
-      if(maxX - minX > 0.38 && (now - lastResetTime > 900)){ lastResetTime = now; for(let i=0;i<COUNT;i++){ pos[i*3]=(Math.random()-.5)*120; pos[i*3+1]=(Math.random()-.5)*120; pos[i*3+2]=(Math.random()-.5)*120; vel[i*3]=vel[i*3+1]=vel[i*3+2]=0; } statusText.innerText='إعادة ضبط'; }
-
-    } else { updateHandVisuals(null); statusText.innerText='لم تُكتشف يد — قرب يدك للكاميرا'; }
-  });
-
-  // Face mesh (mouth open)
-  let mouthOpen=false;
-  faceMesh.onResults((results)=>{
-    const now = performance.now();
-    if(results.multiFaceLandmarks && results.multiFaceLandmarks.length>0){
-      const fl = results.multiFaceLandmarks[0];
-      // نستخدم النقاط 13 (upper center) و14 (lower center) إن وجدت
-      const a = fl[13], b = fl[14];
-      if(a && b){
-        const d = Math.hypot(a.x-b.x, a.y-b.y);
-        if(d > 0.035 && (now - lastMouthTime > 900)){
-          lastMouthTime = now;
-          mouthOpen = true;
-          // نشاط الشرار: نضيف سرعات قوية لعدد من الجزيئات القريبة من الفم
-          for(let i=0;i<COUNT/6;i++){
-            const j = Math.floor(Math.random()*COUNT);
-            vel[j*3] += (Math.random()-.5)*30;
-            vel[j*3+1] += (Math.random()-.2)*45;
-            vel[j*3+2] += (Math.random()-.5)*30;
-          }
-          statusText.innerText='فتح الفم: شرار!';
-          setTimeout(()=>{ mouthOpen=false; }, 600);
+// FaceMesh results (mouth open => spark)
+faceMesh.onResults((res)=>{
+  const now = performance.now();
+  if(res.multiFaceLandmarks && res.multiFaceLandmarks.length > 0){
+    const fl = res.multiFaceLandmarks[0];
+    // common indices around lips: use upper center (13) and lower center (14) as approximate
+    const a = fl[13], b = fl[14];
+    if(a && b){
+      const d = Math.hypot(a.x - b.x, a.y - b.y);
+      if(d > 0.037 && now - cooldown.mouth > 900){
+        cooldown.mouth = now;
+        // push some particles outward as "sparks"
+        for(let k=0;k<Math.floor(COUNT/6);k++){
+          const j = Math.floor(Math.random()*COUNT);
+          vel[j*3] += (Math.random()-.5)*30;
+          vel[j*3+1] += Math.random()*45; // more upward
+          vel[j*3+2] += (Math.random()-.5)*30;
         }
+        statusText.innerText = 'فتح الفم: شرار!';
       }
     }
-  });
+  }
+});
 
-  // تفعيل الكاميرا + Mediapipe Camera
-  startButton.onclick = async ()=>{
-    overlay.style.display = 'none'; statusText.innerText='جاري طلب إذن الكاميرا...';
-    try{
-      const cameraHelper = new Camera(video, {
-        onFrame: async ()=>{
-          await hands.send({image: video});
-          await faceMesh.send({image: video});
-        }, width:640, height:480
-      });
-      await cameraHelper.start();
-      try{ camPreview.srcObject = video.srcObject; await camPreview.play(); }catch(e){}
-      statusText.innerText='كاميرا شغّالة — قرب يدك وفمك للكاميرا';
-      animate();
-    }catch(err){ console.error('Camera error',err); statusText.innerText='خطأ بالكاميرا: '+(err&&err.message?err.message:err); overlay.style.display='flex'; }
-  };
+// camera utils: create Camera and start sending frames to mediapipe
+startButton.onclick = async ()=>{
+  overlay.style.display = 'none';
+  statusText.innerText = 'جاري طلب إذن الكاميرا...';
+  try{
+    const cam = new Camera(video, {
+      onFrame: async ()=>{
+        await hands.send({image: video});
+        await faceMesh.send({image: video});
+      },
+      width: 640, height: 480
+    });
+    await cam.start();
 
-  // animation loop
-  let time = 0;
-  function animate(){
-    requestAnimationFrame(animate);
-    if(!freeze) time += 0.012;
+    // show preview (video.srcObject is set by Camera)
+    try{ camPreview.srcObject = video.srcObject; await camPreview.play(); }catch(e){ /* autoplay restrictions */ }
 
-    const positions = geo.attributes.position.array;
-    const colors = geo.attributes.color.array;
+    statusText.innerText = 'كاميرا شغّالة — قرب يدك وفمك للكاميرا';
+    animate();
+  }catch(err){
+    console.error('Camera error', err);
+    statusText.innerText = 'خطأ بالكاميرا: '+(err && err.message?err.message:err);
+    overlay.style.display = 'flex';
+  }
+};
 
-    for(let i=0;i<COUNT;i++){
-      const i3 = i*3;
-      // attractor
-      let target = (currentShape==='heart') ? heart((i/COUNT)*Math.PI*2).multiplyScalar(scale*1.6) : sphere(i).multiplyScalar(scale*1.2);
-      const noise = Math.sin(time + i) * 0.6;
+// animation loop
+let time = 0;
+function animate(){
+  requestAnimationFrame(animate);
+  if(!freeze) time += 0.012;
 
-      // apply velocities
-      positions[i3] += vel[i3] * 0.02;
-      positions[i3+1] += vel[i3+1] * 0.02;
-      positions[i3+2] += vel[i3+2] * 0.02;
+  // update particles
+  for(let i=0;i<COUNT;i++){
+    const i3 = i*3;
 
-      // attraction towards shape + hand offset
-      positions[i3] += (target.x + handX + noise - positions[i3]) * 0.09;
-      positions[i3+1] += (target.y + handY + noise - positions[i3+1]) * 0.09;
-      positions[i3+2] += (target.z - positions[i3+2]) * 0.085;
+    // velocity applied
+    positions[i3] += vel[i3]*0.02;
+    positions[i3+1] += vel[i3+1]*0.02;
+    positions[i3+2] += vel[i3+2]*0.02;
 
-      // damping velocities
-      vel[i3] *= 0.93; vel[i3+1] *= 0.93; vel[i3+2] *= 0.93;
+    // attractor target
+    const target = (currentShape === 'heart')
+      ? heart((i/COUNT)*Math.PI*2).multiplyScalar(scale*1.6)
+      : spherePoint(i).multiplyScalar(scale*1.2);
 
-      // colors
-      if(colorMode===0){ colors[i3]=0.6; colors[i3+1]=0.6; colors[i3+2]=1; }
-      else if(colorMode===1){ colors[i3]=1; colors[i3+1]=0.45; colors[i3+2]=0.5; }
-      else { colors[i3]=0.35; colors[i3+1]=0.95; colors[i3+2]=0.6; }
-    }
+    const noise = Math.sin(time + i) * 0.6;
+    positions[i3] += (target.x + handX + noise - positions[i3]) * 0.09;
+    positions[i3+1] += (target.y + handY + noise - positions[i3+1]) * 0.09;
+    positions[i3+2] += (target.z - positions[i3+2]) * 0.085;
 
-    geo.attributes.position.needsUpdate = true;
-    geo.attributes.color.needsUpdate = true;
+    // damping
+    vel[i3] *= 0.93; vel[i3+1] *= 0.93; vel[i3+2] *= 0.93;
 
-    // update hand visuals buffers
-    handLineGeom.attributes.position.needsUpdate = true;
-    threadGeom.attributes.position.needsUpdate = true;
-
-    particles.rotation.y += rotSpeed;
-    renderer.render(scene,camera);
+    // color modes
+    if(colorMode===0){ colors[i3]=0.6; colors[i3+1]=0.6; colors[i3+2]=1; }
+    else if(colorMode===1){ colors[i3]=1; colors[i3+1]=0.45; colors[i3+2]=0.5; }
+    else { colors[i3]=0.35; colors[i3+1]=0.95; colors[i3+2]=0.6; }
   }
 
-  window.addEventListener('resize',()=>{ camera.aspect = window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth,window.innerHeight); });
+  geo.attributes.position.needsUpdate = true;
+  geo.attributes.color.needsUpdate = true;
+  threadGeom.attributes.position.needsUpdate = true;
+  handLineGeom.attributes.position.needsUpdate = true;
 
-</script></body>
+  particles.rotation.y += rotSpeed;
+  renderer.render(scene, camera);
+}
+
+// resize
+window.addEventListener('resize', ()=>{
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+</script>
+</body>
 </html>
