@@ -3,79 +3,78 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hand Tracking Particles</title>
+    <title>تتبع اليد والجزيئات</title>
     <style>
-        body {
-            margin: 0;
-            overflow: hidden;
-            background-color: #000;
-            font-family: sans-serif;
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        canvas { display: block; }
+        
+        /* تصميم زر البداية */
+        #overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8); display: flex; justify-content: center;
+            align-items: center; z-index: 1000; flex-direction: column;
         }
-        canvas {
-            display: block;
+        button {
+            padding: 15px 30px; font-size: 1.2rem; cursor: pointer;
+            border: none; border-radius: 50px; background: #ff4757; color: white;
+            box-shadow: 0 4px 15px rgba(255, 71, 87, 0.4); transition: 0.3s;
         }
-        #status {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            color: white;
-            background: rgba(0, 0, 0, 0.5);
-            padding: 10px;
-            border-radius: 5px;
-            pointer-events: none;
-            z-index: 10;
-        }
+        button:hover { transform: scale(1.1); background: #ff6b81; }
+        #status { position: absolute; bottom: 20px; width: 100%; text-align: center; color: #fff; z-index: 10; }
     </style>
 </head>
 <body>
 
-    <div id="status">جاري تشغيل الكاميرا...</div>
+    <div id="overlay">
+        <h2 style="color: white; margin-bottom: 20px;">تتبع اليد بالجزيئات الذكية</h2>
+        <button id="startButton">ابدأ التجربة وتفعيل الكاميرا</button>
+    </div>
+    
+    <div id="status">انتظر قليلاً بعد الضغط...</div>
 
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    
     <script type="module">
         import * as THREE from 'https://cdn.skypack.dev/three@0.132.2';
-        import { Hands } from 'https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js';
 
-        // --- 1. الإعدادات العامة للمشهد ---
+        const startButton = document.getElementById('startButton');
+        const overlay = document.getElementById('overlay');
+        const statusText = document.getElementById('status');
+
+        // --- إعدادات المشهد ---
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-        renderer.setPixelRatio(window.devicePixelRatio);
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
-
         camera.position.z = 60;
 
-        // --- 2. نظام الجزيئات ---
+        // --- نظام الجزيئات ---
         const PARTICLE_COUNT = 8000;
         const geometry = new THREE.BufferGeometry();
         const positions = new Float32Array(PARTICLE_COUNT * 3);
         const colors = new Float32Array(PARTICLE_COUNT * 3);
-        const sizes = new Float32Array(PARTICLE_COUNT);
-
+        
         for (let i = 0; i < PARTICLE_COUNT; i++) {
             positions[i * 3] = (Math.random() - 0.5) * 200;
             positions[i * 3 + 1] = (Math.random() - 0.5) * 200;
             positions[i * 3 + 2] = (Math.random() - 0.5) * 200;
-            sizes[i] = Math.random() * 2.0 + 0.5;
         }
-
         geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
         geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-        geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
 
         const pMaterial = new THREE.PointsMaterial({
-            size: 0.8,
-            vertexColors: true,
-            transparent: true,
-            blending: THREE.AdditiveBlending,
-            depthWrite: false,
+            size: 0.7, vertexColors: true, transparent: true,
+            blending: THREE.AdditiveBlending, depthWrite: false,
             map: new THREE.TextureLoader().load('https://threejs.org/examples/textures/sprites/disc.png')
         });
-
         const particleSystem = new THREE.Points(geometry, pMaterial);
         scene.add(particleSystem);
 
-        // --- 3. دوال الأشكال ---
+        // دوال الأشكال (استخدام LaTeX للمعادلات)
+        // $x = 16 \sin^3(t)$
+        // $y = 13 \cos(t) - 5 \cos(2t) - 2 \cos(3t) - \cos(4t)$
         const getHeartPoint = (t) => {
             const x = 16 * Math.pow(Math.sin(t), 3);
             const y = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
@@ -85,28 +84,18 @@
         const getSpherePoint = (i) => {
             const phi = Math.acos(-1 + (2 * i) / PARTICLE_COUNT);
             const theta = Math.sqrt(PARTICLE_COUNT * Math.PI) * phi;
-            return new THREE.Vector3().setFromSphericalCoords(20, phi, theta);
+            return new THREE.Vector3().setFromSphericalCoords(22, phi, theta);
         };
 
-        // --- 4. تتبع اليد (Mediapipe) والكاميرا ---
-        let handX = 0, handY = 0, lerpHandX = 0, lerpHandY = 0;
-        let pinchScale = 1;
-        let currentShape = 'sphere';
-
+        // --- إعداد Mediapipe ---
+        let handX = 0, handY = 0, pinchScale = 1, currentShape = 'sphere';
         const video = document.createElement('video');
-        video.setAttribute('playsinline', '');
-        video.setAttribute('autoplay', '');
 
         const hands = new Hands({
             locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
         });
 
-        hands.setOptions({
-            maxNumHands: 1,
-            modelComplexity: 1,
-            minDetectionConfidence: 0.7,
-            minTrackingConfidence: 0.7
-        });
+        hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
 
         hands.onResults((results) => {
             if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
@@ -117,77 +106,64 @@
                 const dx = landmarks[4].x - landmarks[8].x;
                 const dy = landmarks[4].y - landmarks[8].y;
                 pinchScale = Math.max(0.5, Math.sqrt(dx*dx + dy*dy) * 15);
-
+                
                 const isFist = landmarks[12].y > landmarks[9].y; 
                 currentShape = isFist ? 'heart' : 'sphere';
-                document.getElementById('status').innerText = "تم رصد اليد! جرب القبضة أو التكبير";
-            } else {
-                document.getElementById('status').innerText = "ضع يدك أمام الكاميرا";
+                statusText.innerText = "متصل: حرك يدك أو أغلق قبضتك";
             }
         });
 
-        async function startApp() {
+        // --- تفعيل الكاميرا عند الضغط ---
+        startButton.onclick = async () => {
+            overlay.style.display = 'none';
+            statusText.innerText = "جاري طلب إذن الكاميرا...";
+            
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { width: 1280, height: 720 } 
+                const cameraHelper = new Camera(video, {
+                    onFrame: async () => {
+                        await hands.send({image: video});
+                    },
+                    width: 640, height: 480
                 });
-                video.srcObject = stream;
-                await video.play();
-                
-                const predict = async () => {
-                    await hands.send({image: video});
-                    requestAnimationFrame(predict);
-                };
-                predict();
+                await cameraHelper.start();
                 animate();
             } catch (err) {
-                document.getElementById('status').innerText = "خطأ: تأكد من إعطاء إذن الكاميرا واستخدام HTTPS";
+                statusText.innerText = "حدث خطأ: " + err.message;
                 console.error(err);
             }
-        }
+        };
 
-        // --- 5. حلقة التحريك ---
+        // --- حلقة التحريك ---
         let time = 0;
+        let lerpX = 0, lerpY = 0;
         function animate() {
             requestAnimationFrame(animate);
             time += 0.01;
+            lerpX += (handX - lerpX) * 0.1;
+            lerpY += (handY - lerpY) * 0.1;
 
-            lerpHandX += (handX - lerpHandX) * 0.1;
-            lerpHandY += (handY - lerpHandY) * 0.1;
-
-            const posAttr = geometry.attributes.position;
-            const colorAttr = geometry.attributes.color;
+            const pos = geometry.attributes.position;
+            const col = geometry.attributes.color;
 
             for (let i = 0; i < PARTICLE_COUNT; i++) {
-                let target = new THREE.Vector3();
-                if (currentShape === 'heart') {
-                    target = getHeartPoint((i / PARTICLE_COUNT) * Math.PI * 2).multiplyScalar(pinchScale);
-                } else {
-                    target = getSpherePoint(i).multiplyScalar(pinchScale);
-                }
+                let target = (currentShape === 'heart') 
+                    ? getHeartPoint((i / PARTICLE_COUNT) * Math.PI * 2).multiplyScalar(pinchScale)
+                    : getSpherePoint(i).multiplyScalar(pinchScale);
 
-                const noise = Math.sin(time + i) * 0.5;
-                const curX = posAttr.getX(i);
-                const curY = posAttr.getY(i);
-                const curZ = posAttr.getZ(i);
+                const noise = Math.sin(time + i) * 0.4;
+                const cx = pos.getX(i), cy = pos.getY(i), cz = pos.getZ(i);
 
-                posAttr.setXYZ(
-                    i,
-                    curX + (target.x + lerpHandX + noise - curX) * 0.08,
-                    curY + (target.y + lerpHandY + noise - curY) * 0.08,
-                    curZ + (target.z - curZ) * 0.08
+                pos.setXYZ(i, 
+                    cx + (target.x + lerpX + noise - cx) * 0.1,
+                    cy + (target.y + lerpY + noise - cy) * 0.1,
+                    cz + (target.z - cz) * 0.1
                 );
-
-                colorAttr.setXYZ(
-                    i,
-                    0.5 + Math.sin(time + i * 0.01) * 0.5,
-                    0.3 + Math.cos(time + i * 0.01) * 0.5,
-                    0.8 + Math.sin(time) * 0.2
-                );
+                
+                col.setXYZ(i, 0.4 + Math.sin(time + i*0.01)*0.4, 0.6, 1.0);
             }
-            posAttr.needsUpdate = true;
-            colorAttr.needsUpdate = true;
-            particleSystem.rotation.y += 0.005;
+            pos.needsUpdate = true;
+            col.needsUpdate = true;
+            particleSystem.rotation.y += 0.002;
             renderer.render(scene, camera);
         }
 
@@ -196,10 +172,6 @@
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
-
-        // تشغيل التطبيق
-        startApp();
     </script>
 </body>
 </html>
-
