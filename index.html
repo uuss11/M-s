@@ -1,45 +1,45 @@
 <!doctype html>
 <html lang="ar">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>تحكم باليد — نسخة مصححة</title>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>تحكم باليد — نسخة مُصحّحة ومباشرة</title>
 <style>
   body{margin:0;overflow:hidden;background:#000;color:#fff;font-family:Segoe UI,Arial}
   canvas{display:block}
   #overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;z-index:1000;flex-direction:column;gap:10px}
   button{padding:10px 22px;border-radius:999px;border:none;background:#ff4757;color:#fff;cursor:pointer;font-size:1rem}
-  #status{position:fixed;bottom:12px;left:0;right:0;text-align:center;z-index:20}
-  #legend{position:fixed;top:12px;left:12px;padding:10px;background:rgba(0,0,0,.55);backdrop-filter:blur(6px);border-radius:10px;z-index:30;max-width:260px;font-size:.9rem}
-  #camBox{position:fixed;bottom:12px;right:12px;width:220px;height:160px;border-radius:12px;overflow:hidden;z-index:40;border:2px solid rgba(255,255,255,.12);background:#000}
+  #status{position:fixed;bottom:12px;left:0;right:0;text-align:center;z-index:40}
+  #legend{position:fixed;top:12px;left:12px;padding:10px;background:rgba(0,0,0,.55);backdrop-filter:blur(6px);border-radius:10px;z-index:40;max-width:300px;font-size:.9rem}
+  #camBox{position:fixed;bottom:12px;right:12px;width:240px;height:170px;border-radius:12px;overflow:hidden;z-index:50;border:2px solid rgba(255,255,255,.12);background:#000}
   #camBox video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
 </style>
 </head>
 <body>
 
 <div id="overlay">
-  <h2 style="margin:0">تجربة التحكم باليد — مُصلّحة</h2>
-  <div style="color:#ddd">اضغط ابدأ واسمح للكاميرا (يفضل Chrome / localhost أو HTTPS)</div>
+  <h2 style="margin:0">تجربة التحكم باليد — نسخة مُصحّحة</h2>
+  <div style="color:#ddd">اضغط ابدأ واسمح للكاميرا (Chrome / localhost أو HTTPS)</div>
   <button id="startButton">ابدأ</button>
 </div>
 
 <div id="status">جاهز</div>
 
 <div id="legend">
-  <b>🎮 حركات</b><br>
+  <b>🎮 الحركات</b><br>
   🖐 سبابة → تحريك الجزيئات<br>
   🤏 قرصة → تكبير/تصغير<br>
   ✌️ إصبعين → تغيير الألوان<br>
   👍 إبهام لفوك → دفعة سرعة الدوران<br>
   🤘 روك → تفجير الجزيئات<br>
-  🖐 يد مفتوحة → تجميد<br>
-  👋 تلويح → إعادة ضبط<br>
+  🖐 يد مفتوحة → تجميد المشهد<br>
+  👋 تلويح → إعادة ضبط المشهد<br>
   👄 فتح الفم → شرار يتناثر بعيد
 </div>
 
 <div id="camBox"><video id="camPreview" autoplay muted playsinline></video></div>
 
-<!-- MediaPipe libs (non-module globals) -->
+<!-- MediaPipe libs -->
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
@@ -62,8 +62,8 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 camera.position.z = 85;
 
-// Particles
-let COUNT = 1400; // أقل لالتقاط أفضل على الأجهزة الضعيفة
+// Particles (reduced count for reliability)
+const COUNT = 1300;
 const geo = new THREE.BufferGeometry();
 const positions = new Float32Array(COUNT*3);
 const colors = new Float32Array(COUNT*3);
@@ -86,15 +86,15 @@ scene.add(particles);
 const handGroup = new THREE.Group();
 scene.add(handGroup);
 
-// THREADS: line segments from wrist to fingertips (5 segments)
-const threadPositions = new Float32Array(5 * 2 * 3); // 5 fingers * 2 points * xyz
+// THREADS: wrist->fingertips lines (5 segments)
+const threadPositions = new Float32Array(5 * 2 * 3); // 30 values
 const threadGeom = new THREE.BufferGeometry();
 threadGeom.setAttribute('position', new THREE.BufferAttribute(threadPositions,3));
-const threadMat = new THREE.LineBasicMaterial({ color: 0x66ffff, transparent:true, opacity:0.9 });
+const threadMat = new THREE.LineBasicMaterial({ color: 0x66ffff, transparent:true, opacity:0.95 });
 const threadLines = new THREE.LineSegments(threadGeom, threadMat);
 handGroup.add(threadLines);
 
-// HAND SKELETON segments (use map of connections)
+// HAND SKELETON
 const HAND_CONN = [
   [0,1],[1,2],[2,3],[3,4],
   [0,5],[5,6],[6,7],[7,8],
@@ -105,11 +105,11 @@ const HAND_CONN = [
 const handLinePositions = new Float32Array(HAND_CONN.length * 2 * 3);
 const handLineGeom = new THREE.BufferGeometry();
 handLineGeom.setAttribute('position', new THREE.BufferAttribute(handLinePositions,3));
-const handLineMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent:true, opacity:0.9 });
+const handLineMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent:true, opacity:0.95 });
 const handLines = new THREE.LineSegments(handLineGeom, handLineMat);
 handGroup.add(handLines);
 
-// Markers (detect / understand)
+// Markers
 const markerGeom = new THREE.SphereGeometry(2.6, 8, 6);
 const markerDetectMat = new THREE.MeshBasicMaterial({ color: 0x00ff88, transparent:true, opacity:0.95 });
 const markerUnderstandMat = new THREE.MeshBasicMaterial({ color: 0xffd166, transparent:true, opacity:0.95 });
@@ -118,7 +118,7 @@ const markerUnderstand = new THREE.Mesh(markerGeom, markerUnderstandMat);
 markerDetect.visible = false; markerUnderstand.visible = false;
 handGroup.add(markerDetect); handGroup.add(markerUnderstand);
 
-// helpers: mapping landmarks -> scene coords
+// helpers
 function lmToScene(lm){
   const x = (lm.x - 0.5) * window.innerWidth * 0.06;
   const y = -(lm.y - 0.5) * window.innerHeight * 0.045;
@@ -126,132 +126,99 @@ function lmToScene(lm){
   return new THREE.Vector3(x,y,z);
 }
 
-// shapes
-const heart = (t)=> new THREE.Vector3(
-  16*Math.pow(Math.sin(t),3),
-  13*Math.cos(t) - 5*Math.cos(2*t) - 2*Math.cos(3*t) - Math.cos(4*t),
-  0
-);
-const spherePoint = (i)=> {
-  const phi = Math.acos(-1 + 2*i/COUNT);
-  const th = Math.sqrt(COUNT * Math.PI) * phi;
-  return new THREE.Vector3().setFromSphericalCoords(22, phi, th);
-};
+const heart=(t)=> new THREE.Vector3(16*Math.pow(Math.sin(t),3),13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t),0);
+const spherePoint=(i)=>{ const phi=Math.acos(-1 + 2*i/COUNT); const th=Math.sqrt(COUNT*Math.PI)*phi; return new THREE.Vector3().setFromSphericalCoords(22,phi,th); };
 
 // state
-let handX=0, handY=0, scale=1, rotSpeed=0.002, freeze=false;
+let handX=0, handY=0, scaleVal=1, rotSpeed=0.002, freeze=false;
 let colorMode=0, currentShape='sphere';
 const cooldown = { color:0, explosion:0, boost:0, reset:0, mouth:0 };
 
-// MediaPipe video (hidden)
-const video = document.createElement('video');
-video.autoplay = true; video.muted = true; video.playsInline = true; video.style.display = 'none';
-document.body.appendChild(video);
+// MediaPipe: use the visible video element as the camera source
+const videoEl = camPreview; // pass this directly to Camera
 
-// MediaPipe Hands
+// Hands and FaceMesh instances (global constructors provided by included scripts)
 const hands = new Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
 hands.setOptions({ maxNumHands:1, modelComplexity:1, minDetectionConfidence:0.55, minTrackingConfidence:0.55 });
 
-// MediaPipe FaceMesh (for mouth)
 const faceMesh = new FaceMesh({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}` });
 faceMesh.setOptions({ maxNumFaces:1, refineLandmarks:true, minDetectionConfidence:0.5, minTrackingConfidence:0.5 });
 
-// debug helper (console)
-function dbg(...a){ /* console.log(...a); */ }
-
-// update visuals (threads + skeleton + markers)
+// update hand visuals
 function updateHandVisuals(landmarks){
   if(!landmarks){ threadLines.visible=false; handLines.visible=false; markerDetect.visible=false; markerUnderstand.visible=false; return; }
-  threadLines.visible = true; handLines.visible = true;
-
+  threadLines.visible=true; handLines.visible=true;
   const wrist = lmToScene(landmarks[0]);
 
-  // threads: pairs (wrist -> fingertip)
+  // threads (wrist->tips 4,8,12,16,20)
   const tips = [4,8,12,16,20];
   for(let i=0;i<5;i++){
     const p = lmToScene(landmarks[tips[i]]);
     const base = i*6;
-    threadPositions[base+0] = wrist.x;
-    threadPositions[base+1] = wrist.y;
-    threadPositions[base+2] = wrist.z;
-    threadPositions[base+3] = p.x;
-    threadPositions[base+4] = p.y;
-    threadPositions[base+5] = p.z;
+    threadPositions[base+0]=wrist.x; threadPositions[base+1]=wrist.y; threadPositions[base+2]=wrist.z;
+    threadPositions[base+3]=p.x; threadPositions[base+4]=p.y; threadPositions[base+5]=p.z;
   }
   threadGeom.attributes.position.needsUpdate = true;
 
-  // skeleton lines using HAND_CONN
+  // skeleton lines
   for(let i=0;i<HAND_CONN.length;i++){
-    const a = HAND_CONN[i][0], b = HAND_CONN[i][1];
-    const pa = lmToScene(landmarks[a]);
-    const pb = lmToScene(landmarks[b]);
+    const a=HAND_CONN[i][0], b=HAND_CONN[i][1];
+    const pa = lmToScene(landmarks[a]), pb = lmToScene(landmarks[b]);
     const off = i*6;
     handLinePositions[off+0]=pa.x; handLinePositions[off+1]=pa.y; handLinePositions[off+2]=pa.z;
     handLinePositions[off+3]=pb.x; handLinePositions[off+4]=pb.y; handLinePositions[off+5]=pb.z;
   }
   handLineGeom.attributes.position.needsUpdate = true;
 
-  // show marker at palm/wrist
-  markerDetect.position.copy(wrist);
-  markerDetect.visible = true;
+  // marker at wrist
+  markerDetect.position.copy(wrist); markerDetect.visible=true;
 
-  // detect "OK"/understand: thumb near index
+  // OK detection (thumb near index)
   const dThumbIndex = Math.hypot(landmarks[4].x - landmarks[8].x, landmarks[4].y - landmarks[8].y);
-  if(dThumbIndex < 0.03){
-    markerUnderstand.position.copy(lmToScene(landmarks[9]));
-    markerUnderstand.visible = true;
-  } else markerUnderstand.visible = false;
+  if(dThumbIndex < 0.03){ markerUnderstand.position.copy(lmToScene(landmarks[9])); markerUnderstand.visible=true; }
+  else markerUnderstand.visible=false;
 }
 
-// HANDS results
+// Hands results
 hands.onResults((res)=>{
   const now = performance.now();
-  if(res.multiHandLandmarks && res.multiHandLandmarks.length > 0){
+  if(res.multiHandLandmarks && res.multiHandLandmarks.length>0){
     const lm = res.multiHandLandmarks[0];
     updateHandVisuals(lm);
 
-    // pointer pos (index tip)
+    // pointer pos
     handX = (lm[8].x - 0.5) * window.innerWidth * 0.06;
     handY = -(lm[8].y - 0.5) * window.innerHeight * 0.045;
 
-    // pinch scale (thumb tip vs index tip)
+    // pinch scale
     const dx = lm[4].x - lm[8].x, dy = lm[4].y - lm[8].y;
-    scale = Math.max(0.5, Math.sqrt(dx*dx + dy*dy) * 8);
+    scaleVal = Math.max(0.5, Math.sqrt(dx*dx + dy*dy) * 8);
 
-    // fist detection -> heart
+    // fist
     const isFist = (lm[12].y > lm[9].y);
     currentShape = isFist ? 'heart' : 'sphere';
 
-    // V sign (index & middle up, ring down) -> change color (cooldown)
+    // V sign -> color change
     const indexUp = lm[8].y < lm[6].y;
     const middleUp = lm[12].y < lm[10].y;
     const ringUp = lm[16].y < lm[14].y;
     if(indexUp && middleUp && !ringUp && now - cooldown.color > 700){
-      colorMode = (colorMode + 1) % 3;
-      cooldown.color = now;
-      statusText.innerText = 'تبديل اللون';
+      colorMode = (colorMode + 1) % 3; cooldown.color = now; statusText.innerText='تبديل اللون';
     }
 
     // thumb up -> boost rotation
     const thumbUp = lm[4].y < lm[3].y;
     if(thumbUp && now - cooldown.boost > 800){
-      cooldown.boost = now;
-      rotSpeed = 0.02;
-      setTimeout(()=> rotSpeed = 0.002, 550);
-      statusText.innerText = 'زيادة سرعة الدوران';
+      cooldown.boost = now; rotSpeed = 0.02; setTimeout(()=>rotSpeed = 0.002, 500); statusText.innerText='زيادة سرعة الدوران';
     }
 
-    // rock: index & pinky up & middle down -> explosion
+    // rock -> explosion
     const pinkyUp = lm[20].y < lm[18].y;
     const rock = indexUp && pinkyUp && (lm[12].y > lm[10].y);
     if(rock && now - cooldown.explosion > 900){
       cooldown.explosion = now;
-      for(let i=0;i<COUNT;i++){
-        vel[i*3] += (Math.random()-.5) * 8;
-        vel[i*3+1] += (Math.random()-.5) * 8;
-        vel[i*3+2] += (Math.random()-.5) * 8;
-      }
-      statusText.innerText = 'تفجير!';
+      for(let i=0;i<COUNT;i++){ vel[i*3] += (Math.random()-.5)*8; vel[i*3+1] += (Math.random()-.5)*8; vel[i*3+2] += (Math.random()-.5)*8; }
+      statusText.innerText='تفجير!';
     }
 
     // open hand -> freeze
@@ -259,20 +226,18 @@ hands.onResults((res)=>{
     freeze = openHand;
     if(freeze) statusText.innerText = 'تجميد المشهد';
 
-    // wave detection for reset: track X history in res object (simple ring)
+    // wave history for reset
     if(!hands._wave) hands._wave = [];
     hands._wave.push(lm[8].x);
     if(hands._wave.length > 10) hands._wave.shift();
-    const minX = Math.min(...hands._wave), maxX = Math.max(...hands._wave);
-    if(maxX - minX > 0.36 && performance.now() - cooldown.reset > 900){
+    const mn = Math.min(...hands._wave), mx = Math.max(...hands._wave);
+    if(mx - mn > 0.36 && performance.now() - cooldown.reset > 900){
       cooldown.reset = performance.now();
       for(let i=0;i<COUNT;i++){
-        positions[i*3] = (Math.random()-.5)*120;
-        positions[i*3+1] = (Math.random()-.5)*120;
-        positions[i*3+2] = (Math.random()-.5)*120;
+        positions[i*3] = (Math.random()-.5)*120; positions[i*3+1] = (Math.random()-.5)*120; positions[i*3+2] = (Math.random()-.5)*120;
         vel[i*3]=vel[i*3+1]=vel[i*3+2]=0;
       }
-      statusText.innerText = 'إعادة ضبط';
+      statusText.innerText='إعادة ضبط';
     }
 
   } else {
@@ -281,92 +246,90 @@ hands.onResults((res)=>{
   }
 });
 
-// FaceMesh results (mouth open => spark)
+// FaceMesh results -> mouth open sparks (use landmarks 13 & 14)
 faceMesh.onResults((res)=>{
   const now = performance.now();
-  if(res.multiFaceLandmarks && res.multiFaceLandmarks.length > 0){
+  if(res.multiFaceLandmarks && res.multiFaceLandmarks.length>0){
     const fl = res.multiFaceLandmarks[0];
-    // common indices around lips: use upper center (13) and lower center (14) as approximate
     const a = fl[13], b = fl[14];
     if(a && b){
       const d = Math.hypot(a.x - b.x, a.y - b.y);
       if(d > 0.037 && now - cooldown.mouth > 900){
         cooldown.mouth = now;
-        // push some particles outward as "sparks"
         for(let k=0;k<Math.floor(COUNT/6);k++){
           const j = Math.floor(Math.random()*COUNT);
-          vel[j*3] += (Math.random()-.5)*30;
-          vel[j*3+1] += Math.random()*45; // more upward
-          vel[j*3+2] += (Math.random()-.5)*30;
+          vel[j*3] += (Math.random()-.5)*30; vel[j*3+1] += Math.random()*45; vel[j*3+2] += (Math.random()-.5)*30;
         }
-        statusText.innerText = 'فتح الفم: شرار!';
+        statusText.innerText='فتح الفم: شرار!';
       }
     }
   }
 });
 
-// camera utils: create Camera and start sending frames to mediapipe
+// start camera (pass camPreview directly to Camera to avoid black preview)
 startButton.onclick = async ()=>{
   overlay.style.display = 'none';
   statusText.innerText = 'جاري طلب إذن الكاميرا...';
   try{
-    const cam = new Camera(video, {
+    const cam = new Camera(videoEl, {
       onFrame: async ()=>{
-        await hands.send({image: video});
-        await faceMesh.send({image: video});
+        // send the current video frame to both models
+        await hands.send({image: videoEl});
+        await faceMesh.send({image: videoEl});
       },
       width: 640, height: 480
     });
     await cam.start();
-
-    // show preview (video.srcObject is set by Camera)
-    try{ camPreview.srcObject = video.srcObject; await camPreview.play(); }catch(e){ /* autoplay restrictions */ }
-
+    // ensure preview plays
+    try{ videoEl.play(); }catch(e){ /* autoplay policy */ }
     statusText.innerText = 'كاميرا شغّالة — قرب يدك وفمك للكاميرا';
     animate();
   }catch(err){
-    console.error('Camera error', err);
-    statusText.innerText = 'خطأ بالكاميرا: '+(err && err.message?err.message:err);
+    console.error('Camera start error', err);
+    statusText.innerText = 'خطأ بالكاميرا: ' + (err && err.message ? err.message : err);
     overlay.style.display = 'flex';
   }
 };
 
-// animation loop
-let time = 0;
+// animation loop — use setXYZ for positions updates to ensure three.js sees them
+let t = 0;
 function animate(){
   requestAnimationFrame(animate);
-  if(!freeze) time += 0.012;
+  if(!freeze) t += 0.012;
 
-  // update particles
+  const attrPos = geo.attributes.position;
+  const attrCol = geo.attributes.color;
+
   for(let i=0;i<COUNT;i++){
-    const i3 = i*3;
+    const xIdx = i;
+    // apply velocity
+    positions[i*3] += vel[i*3]*0.02;
+    positions[i*3+1] += vel[i*3+1]*0.02;
+    positions[i*3+2] += vel[i*3+2]*0.02;
 
-    // velocity applied
-    positions[i3] += vel[i3]*0.02;
-    positions[i3+1] += vel[i3+1]*0.02;
-    positions[i3+2] += vel[i3+2]*0.02;
+    // target
+    const target = (currentShape === 'heart') ? heart((i/COUNT)*Math.PI*2).multiplyScalar(scaleVal*1.6) : spherePoint(i).multiplyScalar(scaleVal*1.2);
+    const noise = Math.sin(t + i) * 0.6;
 
-    // attractor target
-    const target = (currentShape === 'heart')
-      ? heart((i/COUNT)*Math.PI*2).multiplyScalar(scale*1.6)
-      : spherePoint(i).multiplyScalar(scale*1.2);
+    const nx = positions[i*3] + (target.x + handX + noise - positions[i*3]) * 0.09;
+    const ny = positions[i*3+1] + (target.y + handY + noise - positions[i*3+1]) * 0.09;
+    const nz = positions[i*3+2] + (target.z - positions[i*3+2]) * 0.085;
 
-    const noise = Math.sin(time + i) * 0.6;
-    positions[i3] += (target.x + handX + noise - positions[i3]) * 0.09;
-    positions[i3+1] += (target.y + handY + noise - positions[i3+1]) * 0.09;
-    positions[i3+2] += (target.z - positions[i3+2]) * 0.085;
+    // update arrays and BufferAttribute via setXYZ (ensures internal updates)
+    attrPos.setXYZ(i, nx, ny, nz);
+    positions[i*3] = nx; positions[i*3+1] = ny; positions[i*3+2] = nz;
 
-    // damping
-    vel[i3] *= 0.93; vel[i3+1] *= 0.93; vel[i3+2] *= 0.93;
+    // damping velocities
+    vel[i*3] *= 0.93; vel[i*3+1] *= 0.93; vel[i*3+2] *= 0.93;
 
-    // color modes
-    if(colorMode===0){ colors[i3]=0.6; colors[i3+1]=0.6; colors[i3+2]=1; }
-    else if(colorMode===1){ colors[i3]=1; colors[i3+1]=0.45; colors[i3+2]=0.5; }
-    else { colors[i3]=0.35; colors[i3+1]=0.95; colors[i3+2]=0.6; }
+    // colors
+    if(colorMode===0) attrCol.setXYZ(i, 0.6, 0.6, 1);
+    else if(colorMode===1) attrCol.setXYZ(i, 1, 0.45, 0.5);
+    else attrCol.setXYZ(i, 0.35, 0.95, 0.6);
   }
 
-  geo.attributes.position.needsUpdate = true;
-  geo.attributes.color.needsUpdate = true;
+  attrPos.needsUpdate = true;
+  attrCol.needsUpdate = true;
   threadGeom.attributes.position.needsUpdate = true;
   handLineGeom.attributes.position.needsUpdate = true;
 
@@ -380,7 +343,6 @@ window.addEventListener('resize', ()=>{
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
-
 </script>
 </body>
 </html>
