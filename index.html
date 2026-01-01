@@ -3,25 +3,25 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>AR الجسم الكامل - النسخة المصححة</title>
+<title>AR الجسم واليد - استجابة فورية</title>
 <style>
   body { margin: 0; overflow: hidden; background: #000; }
   #camPreview { position: fixed; inset: 0; width: 100vw; height: 100vh; object-fit: cover; transform: scaleX(-1); z-index: 1; }
   canvas { position: fixed; inset: 0; z-index: 10; pointer-events: none; }
   #overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 1000; flex-direction: column; color: white; text-align: center; }
-  button { padding: 15px 40px; border-radius: 50px; border: none; background: #00d1b2; color: white; cursor: pointer; font-size: 1.2rem; }
-  #status { position: fixed; top: 10px; width: 100%; text-align: center; color: #00ff88; z-index: 100; font-weight: bold; background: rgba(0,0,0,0.3); }
+  button { padding: 15px 40px; border-radius: 50px; border: none; background: #00d1b2; color: white; cursor: pointer; font-size: 1.2rem; box-shadow: 0 0 15px #00d1b2; }
+  #status { position: fixed; top: 10px; width: 100%; text-align: center; color: #00ff88; z-index: 100; font-weight: bold; text-shadow: 0 0 10px #000; }
 </style>
 </head>
 <body>
 
 <div id="overlay">
-  <h1>نظام AR المتطور</h1>
-  <p>تحكم بالصوت، اليد، والجسم بالكامل</p>
-  <button id="startButton">بدء التشغيل</button>
+  <h1>محرك AR الذكي V5</h1>
+  <p>تتبع ذكي (يد، جسم، أو كليهما) + أوامر صوتية</p>
+  <button id="startButton">تشغيل النظام</button>
 </div>
 
-<div id="status">بانتظار الأوامر...</div>
+<div id="status">بانتظار رصد الحركة...</div>
 <video id="camPreview" playsinline></video>
 
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/holistic/holistic.js"></script>
@@ -35,41 +35,103 @@ const overlay = document.getElementById('overlay');
 const statusText = document.getElementById('status');
 const videoEl = document.getElementById('camPreview');
 
-// 1. إعداد Three.js
+// إعداد المشهد
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000);
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
-camera.position.z = 70;
+camera.position.z = 75;
 
-// 2. نظام الشرار (Particles)
-const COUNT = 1500;
+// نظام الجزيئات
+const COUNT = 1800;
 const posArr = new Float32Array(COUNT * 3);
 const colArr = new Float32Array(COUNT * 3);
-const velArr = new Float32Array(COUNT * 3);
-for(let i=0; i<COUNT*3; i++) posArr[i] = (Math.random()-0.5)*100;
+for(let i=0; i<COUNT*3; i++) posArr[i] = (Math.random()-0.5)*150;
 
 const geo = new THREE.BufferGeometry();
 geo.setAttribute('position', new THREE.BufferAttribute(posArr, 3));
 geo.setAttribute('color', new THREE.BufferAttribute(colArr, 3));
-const mat = new THREE.PointsMaterial({ size: 0.8, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending });
+const mat = new THREE.PointsMaterial({ size: 1.0, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending });
 const particles = new THREE.Points(geo, mat);
 scene.add(particles);
 
-// 3. نظام رسم خطوط الجسم (هذا هو الجزء الذي كان ناقصاً)
-const bodyLineMat = new THREE.LineBasicMaterial({ color: 0x00ffcc, linewidth: 2 });
-const bodyLineGeo = new THREE.BufferGeometry();
-const bodyLines = new THREE.LineSegments(bodyLineGeo, bodyLineMat);
-scene.add(bodyLines);
+// خيوط الجسم واليدين (استخدام LineSegments للسرعة)
+const lineGeo = new THREE.BufferGeometry();
+const lineMat = new THREE.LineBasicMaterial({ color: 0x00ffcc, transparent: true, opacity: 0.7 });
+const allLines = new THREE.LineSegments(lineGeo, lineMat);
+scene.add(allLines);
 
-// الحالة
 let targetPos = new THREE.Vector3(0,0,0);
 let scaleVal = 1;
-let currentShape = 'sphere';
 let pColor = new THREE.Color(0x00ffff);
 
-// --- التحكم الصوتي ---
+// تحويل الإحداثيات (ثابت لكل الأجزاء)
+function to3D(lm) {
+    if(!lm) return null;
+    return new THREE.Vector3(-(lm.x - 0.5) * 110, -(lm.y - 0.5) * 80, -lm.z * 50);
+}
+
+const holistic = new Holistic({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/holistic/${file}` });
+holistic.setOptions({ modelComplexity: 1, smoothLandmarks: true, minDetectionConfidence: 0.4, minTrackingConfidence: 0.4 });
+
+holistic.onResults((res) => {
+    const points = [];
+    
+    // 1. تتبع الجسم (Pose) - حتى لو نصف جسم
+    if (res.poseLandmarks) {
+        const poseConn = [[11,12], [11,13], [13,15], [12,14], [14,16], [11,23], [12,24], [23,24]];
+        poseConn.forEach(([a, b]) => {
+            const p1 = to3D(res.poseLandmarks[a]);
+            const p2 = to3D(res.poseLandmarks[b]);
+            if(p1 && p2) points.push(p1, p2);
+        });
+        scaleVal = Math.max(0.5, Math.abs(res.poseLandmarks[11].x - res.poseLandmarks[12].x) * 6);
+    }
+
+    // 2. تتبع اليد اليمنى (حتى لو ظهرت وحدها)
+    if (res.rightHandLandmarks) {
+        const hand = res.rightHandLandmarks;
+        const handConn = [[0,1],[1,2],[2,3],[3,4], [0,5],[5,6],[6,7],[7,8], [9,10],[10,11],[11,12], [13,14],[14,15],[15,16], [17,18],[18,19],[19,20], [0,17], [5,9], [9,13], [13,17]];
+        handConn.forEach(([a, b]) => {
+            const p1 = to3D(hand[a]);
+            const p2 = to3D(hand[b]);
+            if(p1 && p2) points.push(p1, p2);
+        });
+        
+        // حركة السحب 🤏 والتحكم
+        targetPos.lerp(to3D(hand[8]), 0.3);
+        const dist = Math.hypot(hand[8].x - hand[4].x, hand[8].y - hand[4].y);
+        if(dist < 0.06) {
+            statusText.innerText = "تحكم نشط: تم الإمساك بالشكل 🤏";
+            pColor.set(0xffaa00);
+        } else {
+            pColor.set(0x00ffff);
+            statusText.innerText = "النظام يصغي... حرك يدك أو جسمك";
+        }
+    }
+
+    // 3. تتبع اليد اليسرى
+    if (res.leftHandLandmarks) {
+        const hand = res.leftHandLandmarks;
+        const handConn = [[0,1],[1,2],[2,3],[3,4], [0,5],[5,6],[6,7],[7,8], [17,18],[18,19],[19,20], [0,17]];
+        handConn.forEach(([a, b]) => {
+            const p1 = to3D(hand[a]);
+            const p2 = to3D(hand[b]);
+            if(p1 && p2) points.push(p1, p2);
+        });
+    }
+
+    // تحديث الخطوط فوراً
+    if(points.length > 0) {
+        lineGeo.setFromPoints(points);
+        allLines.visible = true;
+    } else {
+        allLines.visible = false;
+    }
+});
+
+// التحكم الصوتي
 const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
 if(Speech) {
     const rec = new Speech();
@@ -78,61 +140,11 @@ if(Speech) {
     rec.onresult = (e) => {
         const cmd = e.results[e.results.length-1][0].transcript.trim();
         if(cmd.includes("أحمر")) pColor.set(0xff0000);
+        if(cmd.includes("أخضر")) pColor.set(0x00ff00);
         if(cmd.includes("أزرق")) pColor.set(0x00ffff);
-        if(cmd.includes("انفجار")) {
-            for(let i=0; i<COUNT*3; i++) velArr[i] += (Math.random()-0.5)*50;
-        }
-        statusText.innerText = "أمر صوتي: " + cmd;
     };
     rec.start();
 }
-
-// 4. معالجة البيانات من الكاميرا
-function to3D(lm) {
-    return new THREE.Vector3(-(lm.x - 0.5) * 100, -(lm.y - 0.5) * 75, -lm.z * 50);
-}
-
-const holistic = new Holistic({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/holistic/${file}` });
-holistic.setOptions({ modelComplexity: 1, smoothLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
-
-holistic.onResults((res) => {
-    const points = [];
-    
-    // رسم خطوط الجسم واليدين
-    const drawLandmarks = (lms, connections) => {
-        if(!lms) return;
-        connections.forEach(([a, b]) => {
-            if(lms[a] && lms[b]) {
-                points.push(to3D(lms[a]), to3D(lms[b]));
-            }
-        });
-    };
-
-    if(res.poseLandmarks) {
-        // خطوط الجسم
-        const poseConn = [[11,12], [11,23], [12,24], [23,24], [11,13], [13,15], [12,14], [14,16]];
-        drawLandmarks(res.poseLandmarks, poseConn);
-        scaleVal = Math.abs(res.poseLandmarks[11].x - res.poseLandmarks[12].x) * 5;
-    }
-
-    if(res.rightHandLandmarks) {
-        // خطوط اليد
-        const handConn = [[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12]];
-        drawLandmarks(res.rightHandLandmarks, handConn);
-        
-        // تتبع السبابة للشرار
-        targetPos.lerp(to3D(res.rightHandLandmarks[8]), 0.2);
-
-        // ميزة السحب 🤏
-        const index = res.rightHandLandmarks[8];
-        const thumb = res.rightHandLandmarks[4];
-        if(Math.hypot(index.x-thumb.x, index.y-thumb.y) < 0.05) {
-            statusText.innerText = "تم الإمساك بالشكل 🤏";
-        }
-    }
-
-    bodyLineGeo.setFromPoints(points);
-});
 
 function animate() {
     requestAnimationFrame(animate);
@@ -140,22 +152,15 @@ function animate() {
     const col = geo.attributes.color;
 
     for (let i = 0; i < COUNT; i++) {
-        // فيزياء الانفجار
-        posArr[i*3] += velArr[i*3] * 0.1;
-        posArr[i*3+1] += velArr[i*3+1] * 0.1;
-        posArr[i*3+2] += velArr[i*3+2] * 0.1;
-        velArr[i*3] *= 0.9; velArr[i*3+1] *= 0.9; velArr[i*3+2] *= 0.9;
-
-        // حركة الجذب للشكل
         const phi = Math.acos(-1 + 2*i/COUNT);
         const th = Math.sqrt(COUNT*Math.PI)*phi;
-        const tx = Math.cos(th)*Math.sin(phi) * 15 * scaleVal + targetPos.x;
-        const ty = Math.sin(th)*Math.sin(phi) * 15 * scaleVal + targetPos.y;
-        const tz = Math.cos(phi) * 15 * scaleVal + targetPos.z;
+        const tx = Math.cos(th)*Math.sin(phi) * 18 * scaleVal + targetPos.x;
+        const ty = Math.sin(th)*Math.sin(phi) * 18 * scaleVal + targetPos.y;
+        const tz = Math.cos(phi) * 18 * scaleVal + targetPos.z;
 
-        posArr[i*3] += (tx - posArr[i*3]) * 0.1;
-        posArr[i*3+1] += (ty - posArr[i*3+1]) * 0.1;
-        posArr[i*3+2] += (tz - posArr[i*3+2]) * 0.1;
+        posArr[i*3] += (tx - posArr[i*3]) * 0.12;
+        posArr[i*3+1] += (ty - posArr[i*3+1]) * 0.12;
+        posArr[i*3+2] += (tz - posArr[i*3+2]) * 0.12;
 
         col.setXYZ(i, pColor.r, pColor.g, pColor.b);
     }
@@ -166,11 +171,10 @@ function animate() {
 
 startButton.onclick = () => {
     overlay.style.display = 'none';
-    const cam = new Camera(videoEl, {
+    new Camera(videoEl, {
         onFrame: async () => { await holistic.send({ image: videoEl }); },
         width: 1280, height: 720
-    });
-    cam.start();
+    }).start();
     animate();
 };
 </script>
