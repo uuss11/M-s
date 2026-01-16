@@ -3,47 +3,51 @@
 <head>
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
-    <title>AR Gesture V7 - Zoom & Control</title>
+    <title>AR V8 - Dynamic Scaling</title>
     <style>
-        :root { --neon: #00ffcc; --bg: #000; }
+        :root { --neon: #ffcc00; --bg: #0a0a0a; }
         body { margin: 0; overflow: hidden; background: var(--bg); font-family: 'Segoe UI', sans-serif; }
         
         #ui-layer {
             position: fixed; top: 20px; right: 20px; background: rgba(0,0,0,0.85);
             color: white; padding: 20px; border-radius: 15px; border: 1px solid var(--neon);
-            z-index: 100; pointer-events: none; width: 280px;
+            z-index: 100; pointer-events: none; width: 280px; box-shadow: 0 0 20px rgba(255, 204, 0, 0.3);
         }
-        #ui-layer h3 { margin: 0 0 10px 0; color: var(--neon); text-align: center; border-bottom: 1px solid #333; }
-        .gesture-item { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.9rem; }
-        .active-status { color: #ff0055; font-weight: bold; text-align: center; margin-top: 10px; }
+        #ui-layer h3 { margin: 0 0 15px 0; color: var(--neon); text-align: center; border-bottom: 1px solid #333; padding-bottom: 10px;}
+        .gesture-item { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 0.95rem; }
+        .instruction { color: #aaa; font-size: 0.85rem; margin-top: 5px; }
 
-        #camPreview { position: fixed; inset: 0; width: 100vw; height: 100vh; object-fit: cover; transform: scaleX(-1); z-index: 1; opacity: 0.3; }
+        #camPreview { position: fixed; inset: 0; width: 100vw; height: 100vh; object-fit: cover; transform: scaleX(-1); z-index: 1; opacity: 0.25; }
         canvas { position: fixed; inset: 0; z-index: 10; }
         
         #overlay { position: fixed; inset: 0; background: #000; display: flex; align-items: center; justify-content: center; z-index: 1000; flex-direction: column; color: white; }
-        button { padding: 20px 60px; border-radius: 50px; border: 2px solid var(--neon); background: transparent; color: var(--neon); cursor: pointer; font-size: 1.5rem; transition: 0.3s; }
-        button:hover { background: var(--neon); color: black; box-shadow: 0 0 40px var(--neon); }
+        button { padding: 20px 60px; border-radius: 50px; border: 3px solid var(--neon); background: transparent; color: var(--neon); cursor: pointer; font-size: 1.5rem; font-weight: bold; transition: 0.3s; }
+        button:hover { background: var(--neon); color: black; box-shadow: 0 0 50px var(--neon); }
         
-        #status-bar { position: fixed; bottom: 30px; width: 100%; text-align: center; color: var(--neon); z-index: 100; font-size: 1.1rem; }
+        #status-bar { position: fixed; bottom: 30px; width: 100%; text-align: center; color: var(--neon); z-index: 100; font-size: 1.2rem; text-shadow: 0 2px 5px #000; }
     </style>
 </head>
 <body>
 
 <div id="ui-layer">
-    <h3>🎮 رادار الحركات V7</h3>
-    <div class="gesture-item"><span>تقريب/تبعيد:</span> <span>سوي 🤏</span></div>
-    <div class="gesture-item"><span>نثر (انفجار):</span> <span>سوي ✌️</span></div>
-    <div class="gesture-item"><span>سحب (مغناطيس):</span> <span>سوي ✊</span></div>
-    <div id="current-gesture" class="active-status">بانتظار اليد...</div>
+    <h3>🎮 التحكم بالحجم V8</h3>
+    <div class="gesture-item">
+        <span>🤏 التحكم بالحجم:</span>
+        <span>قرب/بعد أصابعك</span>
+    </div>
+    <div class="instruction">المسافة بين الإبهام والسبابة تحدد حجم الشكل مباشرة.</div>
+    <hr style="border-color: #333; margin: 15px 0;">
+    <div class="gesture-item"><span>✌️ تفجير الجزيئات</span></div>
+    <div class="gesture-item"><span>✊ جذب الجزيئات</span></div>
 </div>
 
 <div id="overlay">
-    <h1>AR ENGINE <span style="color:var(--neon)">V7</span></h1>
-    <p style="opacity: 0.6; margin-bottom: 30px;">نظام تتبع اليد الذكي مع ميزة التقريب</p>
-    <button id="startButton">تشغيل النظام</button>
+    <h1>AR ENGINE <span style="color:var(--neon)">V8</span></h1>
+    <p style="opacity: 0.7; margin-bottom: 30px;">نظام التحجيم الديناميكي (Dynamic Scaling)</p>
+    <button id="startButton">تشغيل التجربة</button>
 </div>
 
-<div id="status-bar">يرجى السماح بالكاميرا</div>
+<div id="status-bar">يرجى السماح بالكاميرا للبدء</div>
 <video id="camPreview" playsinline muted></video>
 
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/holistic/holistic.js"></script>
@@ -54,140 +58,129 @@ import * as THREE from 'https://cdn.skypack.dev/three@0.132.2';
 
 const videoEl = document.getElementById('camPreview');
 const statusText = document.getElementById('status-bar');
-const gestureText = document.getElementById('current-gesture');
 
 // --- إعداد Three.js ---
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 2000);
+// تقريب الكاميرا قليلاً لرؤية أفضل
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+camera.position.z = 100; 
+
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
-// كاميرا بعيدة قليلاً للسماح بالتقريب
-camera.position.z = 150;
-
-// الشكل الرئيسي (عقدة هندسية متطورة)
-const geometry = new THREE.TorusKnotGeometry(12, 4, 120, 20);
-const material = new THREE.MeshBasicMaterial({ color: 0x00ffcc, wireframe: true, transparent: true, opacity: 0.4 });
+// الشكل الرئيسي (Icosahedron - شكل جوهرة)
+const geometry = new THREE.IcosahedronGeometry(15, 1);
+const material = new THREE.MeshNormalMaterial({ wireframe: true, transparent: true, opacity: 0.5 });
 const mainMesh = new THREE.Mesh(geometry, material);
 scene.add(mainMesh);
 
-// نظام الجزيئات
-const COUNT = 2000;
-const posArr = new Float32Array(COUNT * 3);
-for(let i=0; i<COUNT*3; i++) posArr[i] = (Math.random()-0.5)*400;
+// نظام الجزيئات المحيطة
 const particleGeo = new THREE.BufferGeometry();
-particleGeo.setAttribute('position', new THREE.BufferAttribute(posArr, 3));
-const particleMat = new THREE.PointsMaterial({ size: 1.2, color: 0x00ffcc, transparent: true, blending: THREE.AdditiveBlending });
+const particleCount = 1500;
+const posArray = new Float32Array(particleCount * 3);
+for(let i=0; i<particleCount*3; i++) posArray[i] = (Math.random()-0.5)*300;
+particleGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+const particleMat = new THREE.PointsMaterial({ size: 1.5, color: 0xffcc00, blending: THREE.AdditiveBlending, transparent: true });
 const particles = new THREE.Points(particleGeo, particleMat);
 scene.add(particles);
 
+// متغيرات التحكم
 let targetPos = new THREE.Vector3(0,0,0);
-let targetZ = 0; // للتحكم في التقريب والتبعيد
-let mode = "follow";
+// متغيرات التحجيم الجديدة
+let currentScale = 1;
+let targetScale = 1;
+let mode = "follow"; // follow, explode, attract
 
-// --- معالجة الإيماءات ---
-function analyzeHand(hand) {
-    const thumb = hand[4], index = hand[8], middle = hand[12], ring = hand[16], pinky = hand[20];
-    
-    // 1. حساب المسافة للقرص 🤏 (Zoom)
-    const pinchDist = Math.hypot(thumb.x - index.x, thumb.y - index.y);
-    
-    // 2. كشف علامة النصر ✌️
-    const isPeace = (index.y < hand[6].y && middle.y < hand[10].y && ring.y > hand[14].y);
-    
-    // 3. كشف القبضة ✊
-    const isFist = (index.y > hand[6].y && middle.y > hand[10].y && ring.y > hand[14].y);
-
-    if (pinchDist < 0.04) return "PINCH";
-    if (isPeace) return "PEACE";
-    if (isFist) return "FIST";
-    return "OPEN";
+// --- تحليل الإيماءات ---
+function analyzeGestures(hand) {
+    const index = hand[8], middle = hand[12], ring = hand[16];
+    // كشف النصر ✌️
+    if (index.y < hand[6].y && middle.y < hand[10].y && ring.y > hand[14].y) return "PEACE";
+    // كشف القبضة ✊
+    if (index.y > hand[6].y && middle.y > hand[10].y && ring.y > hand[14].y) return "FIST";
+    return "follow";
 }
 
 // --- MediaPipe Holistic ---
 const holistic = new window.Holistic({
     locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/holistic/${file}`
 });
-
 holistic.setOptions({ modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 });
 
 holistic.onResults((res) => {
     if (res.rightHandLandmarks) {
         const hand = res.rightHandLandmarks;
-        const gesture = analyzeHand(hand);
-        
-        // تحديث الموقع المستهدف (X, Y)
-        targetPos.x = -(hand[9].x - 0.5) * 250;
-        targetPos.y = -(hand[9].y - 0.5) * 180;
+        const thumbTip = hand[4];
+        const indexTip = hand[8];
 
-        if (gesture === "PINCH") {
-            mode = "zoom";
-            // التقريب يعتمد على موقع اليد في المحور Z (أو استخدام موقع Y كبديل للسهولة)
-            targetZ = (0.5 - hand[9].z) * 500; 
-            gestureText.innerText = "إمساك وتقريب 🤏";
-            particleMat.color.set(0xffff00);
-        } else if (gesture === "PEACE") {
-            mode = "explode";
-            gestureText.innerText = "انفجار جزيئات ✌️";
-            particleMat.color.set(0xff0055);
-        } else if (gesture === "FIST") {
-            mode = "attract";
-            gestureText.innerText = "سحب مغناطيسي ✊";
-            particleMat.color.set(0xaa00ff);
-        } else {
-            mode = "follow";
-            gestureText.innerText = "تتبع حر 🖐️";
-            particleMat.color.set(0x00ffcc);
-        }
+        // 1. تحديث الموقع
+        targetPos.x = -(hand[9].x - 0.5) * 200;
+        targetPos.y = -(hand[9].y - 0.5) * 150;
+
+        // 2. حساب المسافة للتحجيم (The Core Logic)
+        // نحسب المسافة الإقليدية بين الإبهام والسبابة
+        const pinchDistance = Math.hypot(thumbTip.x - indexTip.x, thumbTip.y - indexTip.y);
+        
+        // تحويل المسافة إلى معامل تكبير (Mapping)
+        // المسافة عادة تكون بين 0.02 (قريب جدا) و 0.2 (بعيد)
+        // نضرب في رقم (مثلاً 12) ونضيف قاعدة للحصول على حجم مناسب
+        let newScale = (pinchDistance * 12); 
+        
+        // تحديد الحد الأدنى والأقصى للحجم (Clamp)
+        // لن يقل الحجم عن 0.4 ولن يزيد عن 3.5
+        targetScale = Math.max(0.4, Math.min(newScale, 3.5));
+
+        // 3. تحديد وضع الجزيئات (انفجار/جذب)
+        mode = analyzeGestures(hand);
+        if(mode === "PEACE") particleMat.color.set(0xff0055);
+        else if(mode === "FIST") particleMat.color.set(0x00aaff);
+        else particleMat.color.set(0xffcc00);
+
+        statusText.innerText = `الحجم الحالي: ${(targetScale).toFixed(1)}x`;
     }
 });
 
-// --- حلقة التحريك والفيزياء ---
+// --- حلقة التحريك ---
 function animate() {
     requestAnimationFrame(animate);
     
-    // تنعيم حركة الشكل
-    mainMesh.position.x += (targetPos.x - mainMesh.position.x) * 0.1;
-    mainMesh.position.y += (targetPos.y - mainMesh.position.y) * 0.1;
+    // تنعيم الحركة
+    mainMesh.position.lerp(targetPos, 0.1);
     
-    if (mode === "zoom") {
-        mainMesh.position.z += (targetZ - mainMesh.position.z) * 0.1;
-    }
-
+    // === تنعيم التحجيم (Smooth Scaling) ===
+    // الانتقال التدريجي من الحجم الحالي إلى الحجم المستهدف
+    currentScale += (targetScale - currentScale) * 0.15;
+    mainMesh.scale.set(currentScale, currentScale, currentScale);
+    
+    mainMesh.rotation.x += 0.005;
     mainMesh.rotation.y += 0.01;
 
+    // حركة الجزيئات
     const positions = particleGeo.attributes.position.array;
-    for (let i = 0; i < COUNT; i++) {
+    for (let i = 0; i < particleCount; i++) {
         const i3 = i * 3;
         const dx = mainMesh.position.x - positions[i3];
         const dy = mainMesh.position.y - positions[i3+1];
         const dz = mainMesh.position.z - positions[i3+2];
         const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
 
-        if (mode === "explode") {
-            positions[i3] -= (dx/dist) * 8;
-            positions[i3+1] -= (dy/dist) * 8;
-            positions[i3+2] -= (dz/dist) * 8;
-        } else if (mode === "attract") {
-            positions[i3] += dx * 0.06;
-            positions[i3+1] += dy * 0.06;
-            positions[i3+2] += dz * 0.06;
-        } else {
-            // تتبع هادئ
-            positions[i3] += (dx * 0.02) + (Math.random()-0.5)*1.5;
-            positions[i3+1] += (dy * 0.02) + (Math.random()-0.5)*1.5;
-            positions[i3+2] += (dz * 0.02) + (Math.random()-0.5)*1.5;
+        if (mode === "PEACE") { // انفجار
+            positions[i3] -= dx * 0.08; positions[i3+1] -= dy * 0.08; positions[i3+2] -= dz * 0.08;
+        } else if (mode === "FIST") { // جذب
+            positions[i3] += dx * 0.08; positions[i3+1] += dy * 0.08; positions[i3+2] += dz * 0.08;
+        } else { // تتبع عادي
+            positions[i3] += (dx * 0.03) + Math.sin(i + Date.now()*0.001);
+            positions[i3+1] += (dy * 0.03) + Math.cos(i + Date.now()*0.001);
+            positions[i3+2] += (dz * 0.03);
         }
-
-        // إعادة تدوير الجزيئات إذا طارت بعيداً
-        if (dist > 500) {
-            positions[i3] = mainMesh.position.x + (Math.random()-0.5)*100;
-            positions[i3+1] = mainMesh.position.y + (Math.random()-0.5)*100;
-            positions[i3+2] = mainMesh.position.z + (Math.random()-0.5)*100;
+        // إعادة تدوير الجزيئات البعيدة
+        if (dist > 400 || dist < 5) {
+             positions[i3] = mainMesh.position.x + (Math.random()-0.5)*200;
+             positions[i3+1] = mainMesh.position.y + (Math.random()-0.5)*200;
+             positions[i3+2] = mainMesh.position.z + (Math.random()-0.5)*200;
         }
     }
-    
     particleGeo.attributes.position.needsUpdate = true;
     renderer.render(scene, camera);
 }
@@ -200,7 +193,7 @@ document.getElementById('startButton').onclick = () => {
         width: 1280, height: 720
     });
     cameraHelper.start().then(() => {
-        statusText.innerText = "النظام يعمل - جرب حركة 🤏 للتقريب";
+        statusText.innerText = "النظام يعمل - استخدم السبابة والإبهام للتحكم بالحجم";
         animate();
     });
 };
