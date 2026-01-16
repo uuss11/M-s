@@ -3,48 +3,49 @@
 <head>
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
-    <title>AR Ultimate Hand & Body Control</title>
+    <title>AR Gesture Pro - V6.5</title>
     <style>
-        :root { --neon: #00ffcc; --bg: #050505; }
-        body { margin: 0; overflow: hidden; background: var(--bg); font-family: sans-serif; }
+        :root { --neon: #00ffcc; --bg: #000; }
+        body { margin: 0; overflow: hidden; background: var(--bg); font-family: 'Segoe UI', sans-serif; }
         
-        /* واجهة التعليمات */
-        #ui-guide {
-            position: fixed; top: 20px; right: 20px; background: rgba(0,0,0,0.8);
+        #ui-layer {
+            position: fixed; top: 20px; right: 20px; background: rgba(0,0,0,0.85);
             color: white; padding: 20px; border-radius: 15px; border: 1px solid var(--neon);
-            z-index: 100; pointer-events: none; width: 250px;
+            z-index: 100; pointer-events: none; width: 280px; box-shadow: 0 0 20px rgba(0,255,204,0.2);
         }
-        #ui-guide h3 { margin: 0 0 10px 0; color: var(--neon); font-size: 1.1rem; }
-        #ui-guide li { margin-bottom: 8px; font-size: 0.9rem; list-style: none; }
+        #ui-layer h3 { margin: 0 0 10px 0; color: var(--neon); text-align: center; border-bottom: 1px solid #333; padding-bottom: 5px; }
+        .gesture-item { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.9rem; }
+        .active-status { color: #ff0055; font-weight: bold; animation: blink 1s infinite; }
 
-        #camPreview { position: fixed; inset: 0; width: 100vw; height: 100vh; object-fit: cover; transform: scaleX(-1); z-index: 1; opacity: 0.3; }
+        #camPreview { position: fixed; inset: 0; width: 100vw; height: 100vh; object-fit: cover; transform: scaleX(-1); z-index: 1; opacity: 0.2; }
         canvas { position: fixed; inset: 0; z-index: 10; }
         
-        #overlay { position: fixed; inset: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; z-index: 1000; flex-direction: column; color: white; }
-        button { padding: 18px 60px; border-radius: 50px; border: 2px solid var(--neon); background: transparent; color: var(--neon); cursor: pointer; font-size: 1.3rem; font-weight: bold; transition: 0.3s; }
-        button:hover { background: var(--neon); color: black; box-shadow: 0 0 30px var(--neon); }
+        #overlay { position: fixed; inset: 0; background: radial-gradient(circle, #111 0%, #000 100%); display: flex; align-items: center; justify-content: center; z-index: 1000; flex-direction: column; color: white; }
+        button { padding: 20px 70px; border-radius: 50px; border: 2px solid var(--neon); background: transparent; color: var(--neon); cursor: pointer; font-size: 1.5rem; font-weight: bold; transition: 0.3s; }
+        button:hover { background: var(--neon); color: black; box-shadow: 0 0 40px var(--neon); }
         
-        #status { position: fixed; bottom: 30px; width: 100%; text-align: center; color: var(--neon); z-index: 100; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; }
+        #status-bar { position: fixed; bottom: 30px; width: 100%; text-align: center; color: var(--neon); z-index: 100; font-size: 1.2rem; text-shadow: 0 0 10px #000; }
+        @keyframes blink { 50% { opacity: 0.3; } }
     </style>
 </head>
 <body>
 
-<div id="ui-guide">
-    <h3>🎮 نظام التحكم الذكي</h3>
-    <ul>
-        <li>🔹 <b>حرك يدك:</b> التحكم في الجزيئات</li>
-        <li>🔹 <b>أغلق أصابعك 🤏:</b> ضغط الشكل وتغيير اللون</li>
-        <li>🔹 <b>تكلم:</b> "أحمر"، "أخضر"، "أزرق"</li>
-    </ul>
+<div id="ui-layer">
+    <h3>🎮 رادار الحركات</h3>
+    <div class="gesture-item"><span>نثر الجزيئات:</span> <span>سوي ✌️</span></div>
+    <div class="gesture-item"><span>سحب مغناطيسي:</span> <span>سوي ✊</span></div>
+    <div class="gesture-item"><span>تغيير الشكل:</span> <span>قل "تبديل"</span></div>
+    <hr style="border:0; border-top:1px solid #333">
+    <div id="current-gesture" class="active-status">بانتظار اليد...</div>
 </div>
 
 <div id="overlay">
-    <h1 style="letter-spacing: 5px;">ENGINE <span style="color:var(--neon)">V6-PRO</span></h1>
-    <p style="opacity: 0.5; margin-bottom: 40px;">نظام تتبع اليد والجسم فائق الدقة</p>
-    <button id="startButton">بدء المعالجة</button>
+    <h1 style="letter-spacing: 8px; margin-bottom: 5px;">GESTURE <span style="color:var(--neon)">V6</span></h1>
+    <p style="opacity: 0.6; margin-bottom: 40px;">نظام التفاعل الحركي المتقدم</p>
+    <button id="startButton">تشغيل المحرك</button>
 </div>
 
-<div id="status">بانتظار الإذن...</div>
+<div id="status-bar">يرجى السماح بالوصول للكاميرا والميكروفون</div>
 <video id="camPreview" playsinline muted></video>
 
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/holistic/holistic.js"></script>
@@ -54,127 +55,147 @@
 import * as THREE from 'https://cdn.skypack.dev/three@0.132.2';
 
 const videoEl = document.getElementById('camPreview');
-const statusText = document.getElementById('status');
+const statusText = document.getElementById('status-bar');
+const gestureText = document.getElementById('current-gesture');
 
-// 1. إعداد Three.js المتقدم
+// --- إعداد Three.js ---
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
-camera.position.z = 100;
+camera.position.z = 120;
 
-// إضافة شكل هندسي مركزي (Torus Knot)
-const knotGeo = new THREE.TorusKnotGeometry(15, 4, 150, 20);
-const knotMat = new THREE.MeshBasicMaterial({ color: 0x00ffcc, wireframe: true, transparent: true, opacity: 0.2 });
-const knot = new THREE.Mesh(knotGeo, knotMat);
-scene.add(knot);
+// أشكال هندسية للتبديل
+const geometries = [
+    new THREE.TorusKnotGeometry(15, 5, 150, 20),
+    new THREE.SphereGeometry(20, 32, 32),
+    new THREE.BoxGeometry(25, 25, 25)
+];
+let currentGeoIndex = 0;
+const mainMesh = new THREE.Mesh(geometries[0], new THREE.MeshBasicMaterial({ color: 0x00ffcc, wireframe: true, transparent: true, opacity: 0.15 }));
+scene.add(mainMesh);
 
-// نظام الجزيئات الذكي
-const COUNT = 2500;
-const positions = new Float32Array(COUNT * 3);
-const colors = new Float32Array(COUNT * 3);
-for(let i=0; i<COUNT*3; i++) positions[i] = (Math.random()-0.5)*250;
-
+// نظام الجزيئات
+const COUNT = 3000;
+const posArr = new Float32Array(COUNT * 3);
+const velArr = new Float32Array(COUNT * 3); // للسرعة
 const geo = new THREE.BufferGeometry();
-geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-const mat = new THREE.PointsMaterial({ size: 1.2, vertexColors: true, blending: THREE.AdditiveBlending, transparent: true });
+for(let i=0; i<COUNT*3; i++) posArr[i] = (Math.random()-0.5)*300;
+geo.setAttribute('position', new THREE.BufferAttribute(posArr, 3));
+const mat = new THREE.PointsMaterial({ size: 1.0, color: 0x00ffcc, blending: THREE.AdditiveBlending, transparent: true });
 const particles = new THREE.Points(geo, mat);
 scene.add(particles);
 
 let targetPos = new THREE.Vector3(0,0,0);
-let particleColor = new THREE.Color(0x00ffcc);
-let pulseScale = 1;
+let mode = "follow"; // follow, explode, attract
 
-// 2. معالجة الأوامر الصوتية (عربي مرن)
-function cleanArabic(text) {
-    return text.replace(/[أإآا]/g, 'ا').replace(/ة/g, 'ه').trim();
+// --- نظام تحليل اليد ---
+function getGesture(hand) {
+    const tip8 = hand[8].y, tip12 = hand[12].y, tip16 = hand[16].y, tip20 = hand[20].y;
+    const mid8 = hand[7].y, mid12 = hand[11].y;
+
+    // علامة النصر (إصبعين مرفوعين والباقي نازل)
+    if (tip8 < mid8 && tip12 < mid12 && tip16 > hand[14].y && tip20 > hand[18].y) return "PEACE";
+    // قبضة اليد (كل الأصابع تحت مفاصلها)
+    if (tip8 > mid8 && tip12 > mid12 && tip16 > hand[15].y) return "FIST";
+    
+    return "OPEN";
 }
 
+// --- MediaPipe Holistic ---
+const holistic = new window.Holistic({
+    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/holistic/${file}`
+});
+holistic.setOptions({ modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 });
+
+holistic.onResults((res) => {
+    if (res.rightHandLandmarks) {
+        const hand = res.rightHandLandmarks;
+        targetPos.x = -(hand[9].x - 0.5) * 200;
+        targetPos.y = -(hand[9].y - 0.5) * 150;
+
+        const gesture = getGesture(hand);
+        if (gesture === "PEACE") {
+            mode = "explode";
+            gestureText.innerText = "وضع الانفجار ✌️";
+            mat.color.set(0xff0055);
+        } else if (gesture === "FIST") {
+            mode = "attract";
+            gestureText.innerText = "ثقب أسود ✊";
+            mat.color.set(0xaa00ff);
+        } else {
+            mode = "follow";
+            gestureText.innerText = "تتبع ناعم 🖐️";
+            mat.color.set(0x00ffcc);
+        }
+    } else {
+        mode = "idle";
+        gestureText.innerText = "أظهر يدك اليمنى...";
+    }
+});
+
+// --- الأوامر الصوتية لتبديل الأشكال ---
 const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
 if(Speech) {
     const rec = new Speech();
     rec.continuous = true;
     rec.lang = 'ar-SA';
     rec.onresult = (e) => {
-        const word = cleanArabic(e.results[e.results.length-1][0].transcript);
-        if(word.includes("احمر")) particleColor.set(0xff4444);
-        if(word.includes("اخضر")) particleColor.set(0x44ff44);
-        if(word.includes("ازرق")) particleColor.set(0x4444ff);
-        statusText.innerText = "أمر صوتي: " + word;
+        const cmd = e.results[e.results.length-1][0].transcript;
+        if(cmd.includes("تبديل") || cmd.includes("شكل")) {
+            currentGeoIndex = (currentGeoIndex + 1) % geometries.length;
+            mainMesh.geometry = geometries[currentGeoIndex];
+            statusText.innerText = "تم تغيير الشكل هندسياً";
+        }
     };
     rec.start();
 }
 
-// 3. إعداد MediaPipe Holistic (أفضل مكتبة لليد والجسم)
-const holistic = new window.Holistic({
-    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/holistic/${file}`
-});
-
-holistic.setOptions({
-    modelComplexity: 1,
-    smoothLandmarks: true,
-    minDetectionConfidence: 0.6,
-    minTrackingConfidence: 0.6
-});
-
-holistic.onResults((res) => {
-    // تتبع اليد اليمنى بدقة عالية
-    if (res.rightHandLandmarks) {
-        const tip = res.rightHandLandmarks[8]; // السبابة
-        const thumb = res.rightHandLandmarks[4]; // الإبهام
-        
-        // تحويل الإحداثيات للفضاء الثلاثي
-        targetPos.x = -(tip.x - 0.5) * 150;
-        targetPos.y = -(tip.y - 0.5) * 100;
-        
-        // كشف حركة "الإمساك" (Pinch)
-        const dist = Math.hypot(tip.x - thumb.x, tip.y - thumb.y);
-        if(dist < 0.07) {
-            pulseScale = 0.2;
-            particleColor.set(0xffaa00);
-            statusText.innerText = "تم الإمساك بالشكل 🤏";
-        } else {
-            pulseScale = 1.0;
-            statusText.innerText = "تحرك بحرية 🖐️";
-        }
-    }
-});
-
-// 4. حلقة التحريك (Animation Loop)
+// --- حلقة التحريك (Physics Loop) ---
 function animate() {
     requestAnimationFrame(animate);
     
-    knot.rotation.x += 0.005;
-    knot.rotation.y += 0.01;
-    knot.position.lerp(targetPos, 0.1);
+    mainMesh.rotation.y += 0.01;
+    mainMesh.position.lerp(targetPos, 0.05);
 
-    const posAttr = geo.attributes.position;
-    const colAttr = geo.attributes.color;
+    const positions = geo.attributes.position.array;
 
     for (let i = 0; i < COUNT; i++) {
         const i3 = i * 3;
-        // حركة الجزيئات حول نقطة التحكم
-        const angle = i * 0.1 + Date.now() * 0.001;
-        const radius = 25 * pulseScale;
+        const x = positions[i3], y = positions[i3+1], z = positions[i3+2];
         
-        const tx = targetPos.x + Math.cos(angle) * radius * (i/COUNT * 2);
-        const ty = targetPos.y + Math.sin(angle) * radius * (i/COUNT * 2);
-        const tz = targetPos.z + Math.sin(angle * 0.5) * radius;
+        const dx = targetPos.x - x;
+        const dy = targetPos.y - y;
+        const dz = targetPos.z - z;
+        const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
 
-        posAttr.array[i3] += (tx - posAttr.array[i3]) * 0.1;
-        posAttr.array[i3+1] += (ty - posAttr.array[i3+1]) * 0.1;
-        posAttr.array[i3+2] += (tz - posAttr.array[i3+2]) * 0.1;
+        if (mode === "explode") {
+            // تطشر الجزيئات بعيداً عن اليد
+            positions[i3] -= dx/dist * 5;
+            positions[i3+1] -= dy/dist * 5;
+            positions[i3+2] -= dz/dist * 5;
+        } else if (mode === "attract") {
+            // سحب الجزيئات لمركز اليد
+            positions[i3] += dx * 0.05;
+            positions[i3+1] += dy * 0.05;
+            positions[i3+2] += dz * 0.05;
+        } else {
+            // حركة عشوائية حول اليد
+            positions[i3] += (dx * 0.02) + (Math.random()-0.5)*2;
+            positions[i3+1] += (dy * 0.02) + (Math.random()-0.5)*2;
+            positions[i3+2] += (dz * 0.02) + (Math.random()-0.5)*2;
+        }
 
-        colAttr.setXYZ(i, particleColor.r, particleColor.g, particleColor.b);
+        // حدود الصندوق لضمان عدم اختفاء الجزيئات للأبد
+        if (Math.abs(positions[i3]) > 300) positions[i3] = (Math.random()-0.5)*200;
     }
-    posAttr.needsUpdate = true;
-    colAttr.needsUpdate = true;
+    
+    geo.attributes.position.needsUpdate = true;
     renderer.render(scene, camera);
 }
 
-// 5. بدء التشغيل
+// --- التشغيل ---
 document.getElementById('startButton').onclick = () => {
     document.getElementById('overlay').style.display = 'none';
     const cameraHelper = new window.Camera(videoEl, {
@@ -182,7 +203,7 @@ document.getElementById('startButton').onclick = () => {
         width: 1280, height: 720
     });
     cameraHelper.start().then(() => {
-        statusText.innerText = "النظام يعمل - ارفع يدك للكاميرا";
+        statusText.innerText = "النظام نشط - جرب الحركات بيدك اليمنى";
         animate();
     });
 };
@@ -195,3 +216,4 @@ window.addEventListener('resize', () => {
 </script>
 </body>
 </html>
+
