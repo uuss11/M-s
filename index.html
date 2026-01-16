@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
-    <title>AR Gesture Pro - V6.5</title>
+    <title>AR Gesture V7 - Zoom & Control</title>
     <style>
         :root { --neon: #00ffcc; --bg: #000; }
         body { margin: 0; overflow: hidden; background: var(--bg); font-family: 'Segoe UI', sans-serif; }
@@ -11,41 +11,39 @@
         #ui-layer {
             position: fixed; top: 20px; right: 20px; background: rgba(0,0,0,0.85);
             color: white; padding: 20px; border-radius: 15px; border: 1px solid var(--neon);
-            z-index: 100; pointer-events: none; width: 280px; box-shadow: 0 0 20px rgba(0,255,204,0.2);
+            z-index: 100; pointer-events: none; width: 280px;
         }
-        #ui-layer h3 { margin: 0 0 10px 0; color: var(--neon); text-align: center; border-bottom: 1px solid #333; padding-bottom: 5px; }
+        #ui-layer h3 { margin: 0 0 10px 0; color: var(--neon); text-align: center; border-bottom: 1px solid #333; }
         .gesture-item { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.9rem; }
-        .active-status { color: #ff0055; font-weight: bold; animation: blink 1s infinite; }
+        .active-status { color: #ff0055; font-weight: bold; text-align: center; margin-top: 10px; }
 
-        #camPreview { position: fixed; inset: 0; width: 100vw; height: 100vh; object-fit: cover; transform: scaleX(-1); z-index: 1; opacity: 0.2; }
+        #camPreview { position: fixed; inset: 0; width: 100vw; height: 100vh; object-fit: cover; transform: scaleX(-1); z-index: 1; opacity: 0.3; }
         canvas { position: fixed; inset: 0; z-index: 10; }
         
-        #overlay { position: fixed; inset: 0; background: radial-gradient(circle, #111 0%, #000 100%); display: flex; align-items: center; justify-content: center; z-index: 1000; flex-direction: column; color: white; }
-        button { padding: 20px 70px; border-radius: 50px; border: 2px solid var(--neon); background: transparent; color: var(--neon); cursor: pointer; font-size: 1.5rem; font-weight: bold; transition: 0.3s; }
+        #overlay { position: fixed; inset: 0; background: #000; display: flex; align-items: center; justify-content: center; z-index: 1000; flex-direction: column; color: white; }
+        button { padding: 20px 60px; border-radius: 50px; border: 2px solid var(--neon); background: transparent; color: var(--neon); cursor: pointer; font-size: 1.5rem; transition: 0.3s; }
         button:hover { background: var(--neon); color: black; box-shadow: 0 0 40px var(--neon); }
         
-        #status-bar { position: fixed; bottom: 30px; width: 100%; text-align: center; color: var(--neon); z-index: 100; font-size: 1.2rem; text-shadow: 0 0 10px #000; }
-        @keyframes blink { 50% { opacity: 0.3; } }
+        #status-bar { position: fixed; bottom: 30px; width: 100%; text-align: center; color: var(--neon); z-index: 100; font-size: 1.1rem; }
     </style>
 </head>
 <body>
 
 <div id="ui-layer">
-    <h3>🎮 رادار الحركات</h3>
-    <div class="gesture-item"><span>نثر الجزيئات:</span> <span>سوي ✌️</span></div>
-    <div class="gesture-item"><span>سحب مغناطيسي:</span> <span>سوي ✊</span></div>
-    <div class="gesture-item"><span>تغيير الشكل:</span> <span>قل "تبديل"</span></div>
-    <hr style="border:0; border-top:1px solid #333">
+    <h3>🎮 رادار الحركات V7</h3>
+    <div class="gesture-item"><span>تقريب/تبعيد:</span> <span>سوي 🤏</span></div>
+    <div class="gesture-item"><span>نثر (انفجار):</span> <span>سوي ✌️</span></div>
+    <div class="gesture-item"><span>سحب (مغناطيس):</span> <span>سوي ✊</span></div>
     <div id="current-gesture" class="active-status">بانتظار اليد...</div>
 </div>
 
 <div id="overlay">
-    <h1 style="letter-spacing: 8px; margin-bottom: 5px;">GESTURE <span style="color:var(--neon)">V6</span></h1>
-    <p style="opacity: 0.6; margin-bottom: 40px;">نظام التفاعل الحركي المتقدم</p>
-    <button id="startButton">تشغيل المحرك</button>
+    <h1>AR ENGINE <span style="color:var(--neon)">V7</span></h1>
+    <p style="opacity: 0.6; margin-bottom: 30px;">نظام تتبع اليد الذكي مع ميزة التقريب</p>
+    <button id="startButton">تشغيل النظام</button>
 </div>
 
-<div id="status-bar">يرجى السماح بالوصول للكاميرا والميكروفون</div>
+<div id="status-bar">يرجى السماح بالكاميرا</div>
 <video id="camPreview" playsinline muted></video>
 
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/holistic/holistic.js"></script>
@@ -60,46 +58,50 @@ const gestureText = document.getElementById('current-gesture');
 
 // --- إعداد Three.js ---
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 2000);
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
-camera.position.z = 120;
 
-// أشكال هندسية للتبديل
-const geometries = [
-    new THREE.TorusKnotGeometry(15, 5, 150, 20),
-    new THREE.SphereGeometry(20, 32, 32),
-    new THREE.BoxGeometry(25, 25, 25)
-];
-let currentGeoIndex = 0;
-const mainMesh = new THREE.Mesh(geometries[0], new THREE.MeshBasicMaterial({ color: 0x00ffcc, wireframe: true, transparent: true, opacity: 0.15 }));
+// كاميرا بعيدة قليلاً للسماح بالتقريب
+camera.position.z = 150;
+
+// الشكل الرئيسي (عقدة هندسية متطورة)
+const geometry = new THREE.TorusKnotGeometry(12, 4, 120, 20);
+const material = new THREE.MeshBasicMaterial({ color: 0x00ffcc, wireframe: true, transparent: true, opacity: 0.4 });
+const mainMesh = new THREE.Mesh(geometry, material);
 scene.add(mainMesh);
 
 // نظام الجزيئات
-const COUNT = 3000;
+const COUNT = 2000;
 const posArr = new Float32Array(COUNT * 3);
-const velArr = new Float32Array(COUNT * 3); // للسرعة
-const geo = new THREE.BufferGeometry();
-for(let i=0; i<COUNT*3; i++) posArr[i] = (Math.random()-0.5)*300;
-geo.setAttribute('position', new THREE.BufferAttribute(posArr, 3));
-const mat = new THREE.PointsMaterial({ size: 1.0, color: 0x00ffcc, blending: THREE.AdditiveBlending, transparent: true });
-const particles = new THREE.Points(geo, mat);
+for(let i=0; i<COUNT*3; i++) posArr[i] = (Math.random()-0.5)*400;
+const particleGeo = new THREE.BufferGeometry();
+particleGeo.setAttribute('position', new THREE.BufferAttribute(posArr, 3));
+const particleMat = new THREE.PointsMaterial({ size: 1.2, color: 0x00ffcc, transparent: true, blending: THREE.AdditiveBlending });
+const particles = new THREE.Points(particleGeo, particleMat);
 scene.add(particles);
 
 let targetPos = new THREE.Vector3(0,0,0);
-let mode = "follow"; // follow, explode, attract
+let targetZ = 0; // للتحكم في التقريب والتبعيد
+let mode = "follow";
 
-// --- نظام تحليل اليد ---
-function getGesture(hand) {
-    const tip8 = hand[8].y, tip12 = hand[12].y, tip16 = hand[16].y, tip20 = hand[20].y;
-    const mid8 = hand[7].y, mid12 = hand[11].y;
-
-    // علامة النصر (إصبعين مرفوعين والباقي نازل)
-    if (tip8 < mid8 && tip12 < mid12 && tip16 > hand[14].y && tip20 > hand[18].y) return "PEACE";
-    // قبضة اليد (كل الأصابع تحت مفاصلها)
-    if (tip8 > mid8 && tip12 > mid12 && tip16 > hand[15].y) return "FIST";
+// --- معالجة الإيماءات ---
+function analyzeHand(hand) {
+    const thumb = hand[4], index = hand[8], middle = hand[12], ring = hand[16], pinky = hand[20];
     
+    // 1. حساب المسافة للقرص 🤏 (Zoom)
+    const pinchDist = Math.hypot(thumb.x - index.x, thumb.y - index.y);
+    
+    // 2. كشف علامة النصر ✌️
+    const isPeace = (index.y < hand[6].y && middle.y < hand[10].y && ring.y > hand[14].y);
+    
+    // 3. كشف القبضة ✊
+    const isFist = (index.y > hand[6].y && middle.y > hand[10].y && ring.y > hand[14].y);
+
+    if (pinchDist < 0.04) return "PINCH";
+    if (isPeace) return "PEACE";
+    if (isFist) return "FIST";
     return "OPEN";
 }
 
@@ -107,95 +109,90 @@ function getGesture(hand) {
 const holistic = new window.Holistic({
     locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/holistic/${file}`
 });
+
 holistic.setOptions({ modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 });
 
 holistic.onResults((res) => {
     if (res.rightHandLandmarks) {
         const hand = res.rightHandLandmarks;
-        targetPos.x = -(hand[9].x - 0.5) * 200;
-        targetPos.y = -(hand[9].y - 0.5) * 150;
+        const gesture = analyzeHand(hand);
+        
+        // تحديث الموقع المستهدف (X, Y)
+        targetPos.x = -(hand[9].x - 0.5) * 250;
+        targetPos.y = -(hand[9].y - 0.5) * 180;
 
-        const gesture = getGesture(hand);
-        if (gesture === "PEACE") {
+        if (gesture === "PINCH") {
+            mode = "zoom";
+            // التقريب يعتمد على موقع اليد في المحور Z (أو استخدام موقع Y كبديل للسهولة)
+            targetZ = (0.5 - hand[9].z) * 500; 
+            gestureText.innerText = "إمساك وتقريب 🤏";
+            particleMat.color.set(0xffff00);
+        } else if (gesture === "PEACE") {
             mode = "explode";
-            gestureText.innerText = "وضع الانفجار ✌️";
-            mat.color.set(0xff0055);
+            gestureText.innerText = "انفجار جزيئات ✌️";
+            particleMat.color.set(0xff0055);
         } else if (gesture === "FIST") {
             mode = "attract";
-            gestureText.innerText = "ثقب أسود ✊";
-            mat.color.set(0xaa00ff);
+            gestureText.innerText = "سحب مغناطيسي ✊";
+            particleMat.color.set(0xaa00ff);
         } else {
             mode = "follow";
-            gestureText.innerText = "تتبع ناعم 🖐️";
-            mat.color.set(0x00ffcc);
+            gestureText.innerText = "تتبع حر 🖐️";
+            particleMat.color.set(0x00ffcc);
         }
-    } else {
-        mode = "idle";
-        gestureText.innerText = "أظهر يدك اليمنى...";
     }
 });
 
-// --- الأوامر الصوتية لتبديل الأشكال ---
-const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
-if(Speech) {
-    const rec = new Speech();
-    rec.continuous = true;
-    rec.lang = 'ar-SA';
-    rec.onresult = (e) => {
-        const cmd = e.results[e.results.length-1][0].transcript;
-        if(cmd.includes("تبديل") || cmd.includes("شكل")) {
-            currentGeoIndex = (currentGeoIndex + 1) % geometries.length;
-            mainMesh.geometry = geometries[currentGeoIndex];
-            statusText.innerText = "تم تغيير الشكل هندسياً";
-        }
-    };
-    rec.start();
-}
-
-// --- حلقة التحريك (Physics Loop) ---
+// --- حلقة التحريك والفيزياء ---
 function animate() {
     requestAnimationFrame(animate);
     
+    // تنعيم حركة الشكل
+    mainMesh.position.x += (targetPos.x - mainMesh.position.x) * 0.1;
+    mainMesh.position.y += (targetPos.y - mainMesh.position.y) * 0.1;
+    
+    if (mode === "zoom") {
+        mainMesh.position.z += (targetZ - mainMesh.position.z) * 0.1;
+    }
+
     mainMesh.rotation.y += 0.01;
-    mainMesh.position.lerp(targetPos, 0.05);
 
-    const positions = geo.attributes.position.array;
-
+    const positions = particleGeo.attributes.position.array;
     for (let i = 0; i < COUNT; i++) {
         const i3 = i * 3;
-        const x = positions[i3], y = positions[i3+1], z = positions[i3+2];
-        
-        const dx = targetPos.x - x;
-        const dy = targetPos.y - y;
-        const dz = targetPos.z - z;
+        const dx = mainMesh.position.x - positions[i3];
+        const dy = mainMesh.position.y - positions[i3+1];
+        const dz = mainMesh.position.z - positions[i3+2];
         const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
 
         if (mode === "explode") {
-            // تطشر الجزيئات بعيداً عن اليد
-            positions[i3] -= dx/dist * 5;
-            positions[i3+1] -= dy/dist * 5;
-            positions[i3+2] -= dz/dist * 5;
+            positions[i3] -= (dx/dist) * 8;
+            positions[i3+1] -= (dy/dist) * 8;
+            positions[i3+2] -= (dz/dist) * 8;
         } else if (mode === "attract") {
-            // سحب الجزيئات لمركز اليد
-            positions[i3] += dx * 0.05;
-            positions[i3+1] += dy * 0.05;
-            positions[i3+2] += dz * 0.05;
+            positions[i3] += dx * 0.06;
+            positions[i3+1] += dy * 0.06;
+            positions[i3+2] += dz * 0.06;
         } else {
-            // حركة عشوائية حول اليد
-            positions[i3] += (dx * 0.02) + (Math.random()-0.5)*2;
-            positions[i3+1] += (dy * 0.02) + (Math.random()-0.5)*2;
-            positions[i3+2] += (dz * 0.02) + (Math.random()-0.5)*2;
+            // تتبع هادئ
+            positions[i3] += (dx * 0.02) + (Math.random()-0.5)*1.5;
+            positions[i3+1] += (dy * 0.02) + (Math.random()-0.5)*1.5;
+            positions[i3+2] += (dz * 0.02) + (Math.random()-0.5)*1.5;
         }
 
-        // حدود الصندوق لضمان عدم اختفاء الجزيئات للأبد
-        if (Math.abs(positions[i3]) > 300) positions[i3] = (Math.random()-0.5)*200;
+        // إعادة تدوير الجزيئات إذا طارت بعيداً
+        if (dist > 500) {
+            positions[i3] = mainMesh.position.x + (Math.random()-0.5)*100;
+            positions[i3+1] = mainMesh.position.y + (Math.random()-0.5)*100;
+            positions[i3+2] = mainMesh.position.z + (Math.random()-0.5)*100;
+        }
     }
     
-    geo.attributes.position.needsUpdate = true;
+    particleGeo.attributes.position.needsUpdate = true;
     renderer.render(scene, camera);
 }
 
-// --- التشغيل ---
+// --- بدء التشغيل ---
 document.getElementById('startButton').onclick = () => {
     document.getElementById('overlay').style.display = 'none';
     const cameraHelper = new window.Camera(videoEl, {
@@ -203,7 +200,7 @@ document.getElementById('startButton').onclick = () => {
         width: 1280, height: 720
     });
     cameraHelper.start().then(() => {
-        statusText.innerText = "النظام نشط - جرب الحركات بيدك اليمنى";
+        statusText.innerText = "النظام يعمل - جرب حركة 🤏 للتقريب";
         animate();
     });
 };
@@ -216,4 +213,3 @@ window.addEventListener('resize', () => {
 </script>
 </body>
 </html>
-
